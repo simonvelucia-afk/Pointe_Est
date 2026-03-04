@@ -1345,50 +1345,74 @@ document.addEventListener('DOMContentLoaded', async () => {
   const spacesDate = document.getElementById('spaces-date');
   if (spacesDate) spacesDate.value = today;
 
-  // Auth state change
+  // Check existing session on load
+  const { data: { session } } = await sb.auth.getSession();
+  console.log('Initial session:', session?.user?.email || 'none');
+
+  if (session) {
+    currentUser = session.user;
+    await initApp();
+  } else {
+    showLogin();
+  }
+
+  // Listen for auth changes (login/logout)
   sb.auth.onAuthStateChange(async (event, session) => {
     console.log('Auth event:', event, session?.user?.email);
-    if (session) {
+    if (event === 'SIGNED_IN' && session) {
       currentUser = session.user;
-      try {
-        await loadProfile();
-        console.log('Calling showApp()...');
-        showApp();
-        console.log('showApp() done');
-      } catch(e) {
-        console.error('loadProfile error:', e);
-        // Profile might not exist yet — create it then retry
-        try {
-          await sb.from('profiles').insert({
-            id: currentUser.id,
-            email: currentUser.email || '',
-            full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Utilisateur',
-            role: 'tenant'
-          });
-          await loadProfile();
-          showApp();
-        } catch(e2) {
-          console.error('Profile create error:', e2);
-          // Show app anyway with minimal profile
-          currentProfile = {
-            id: currentUser.id,
-            email: currentUser.email || '',
-            full_name: currentUser.email?.split('@')[0] || 'Utilisateur',
-            unit: null,
-            role: 'tenant',
-            is_approved_driver: false,
-            virtual_balance: 0
-          };
-          showApp();
-        }
-      }
-    } else if (!isDemo) {
+      await initApp();
+    } else if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
+      isDemo = false;
       showLogin();
     }
   });
 });
+
+async function initApp() {
+  console.log('initApp() start, uid=', currentUser?.id);
+  try {
+    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    console.log('profiles query result:', data, error);
+    if (error || !data) {
+      // Try to create profile
+      console.log('Creating profile...');
+      const { error: insertError } = await sb.from('profiles').insert({
+        id: currentUser.id,
+        email: currentUser.email || '',
+        full_name: currentUser.user_metadata?.full_name
+          || currentUser.email?.split('@')[0]
+          || 'Utilisateur',
+        role: 'tenant'
+      });
+      console.log('Insert result:', insertError);
+      // Fetch again
+      const { data: data2 } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+      currentProfile = data2;
+    } else {
+      currentProfile = data;
+    }
+  } catch(e) {
+    console.error('initApp error:', e);
+  }
+
+  if (!currentProfile) {
+    // Fallback profile in memory
+    currentProfile = {
+      id: currentUser.id,
+      email: currentUser.email || '',
+      full_name: currentUser.email?.split('@')[0] || 'Utilisateur',
+      unit: null, role: 'tenant',
+      is_approved_driver: false,
+      virtual_balance: 0
+    };
+  }
+
+  console.log('currentProfile:', currentProfile?.email, currentProfile?.role);
+  showApp();
+}
 
 // ==========================================
 // AUTH
