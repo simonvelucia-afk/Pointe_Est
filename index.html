@@ -1351,7 +1351,7 @@ async function authSubmit() {
 async function loginDemo() {
   isDemo = true;
   currentProfile = {
-    id: '00000000-0000-0000-0000-000000000001',
+    id: null, // profil fictif — aucune ligne en base de données
     email: 'demo@demo.local',
     full_name: 'Utilisateur Démo',
     unit: 'DEMO',
@@ -2522,6 +2522,8 @@ async function loadLogs() {
 // HELPERS
 // ==========================================
 async function logRequest(resourceId, resourceType, action, details = {}) {
+  // Mode démo : le profil est fictif (pas dans auth.users), on ne peut pas écrire en DB
+  if (isDemo) return;
   try {
     await sb.from('reservation_requests').insert({
       user_id: currentProfile.id,
@@ -2529,7 +2531,7 @@ async function logRequest(resourceId, resourceType, action, details = {}) {
       resource_id: resourceId,
       action,
       details,
-      is_demo: isDemo
+      is_demo: false
     });
   } catch(e) { /* silent */ }
 }
