@@ -1347,10 +1347,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Auth state change
   sb.auth.onAuthStateChange(async (event, session) => {
+    console.log('Auth event:', event, session?.user?.email);
     if (session) {
       currentUser = session.user;
-      await loadProfile();
-      showApp();
+      try {
+        await loadProfile();
+        showApp();
+      } catch(e) {
+        console.error('loadProfile error:', e);
+        // Profile might not exist yet — create it then retry
+        try {
+          await sb.from('profiles').insert({
+            id: currentUser.id,
+            email: currentUser.email || '',
+            full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'Utilisateur',
+            role: 'tenant'
+          });
+          await loadProfile();
+          showApp();
+        } catch(e2) {
+          console.error('Profile create error:', e2);
+          // Show app anyway with minimal profile
+          currentProfile = {
+            id: currentUser.id,
+            email: currentUser.email || '',
+            full_name: currentUser.email?.split('@')[0] || 'Utilisateur',
+            unit: null,
+            role: 'tenant',
+            is_approved_driver: false,
+            virtual_balance: 0
+          };
+          showApp();
+        }
+      }
     } else if (!isDemo) {
       currentUser = null;
       currentProfile = null;
@@ -1462,8 +1491,12 @@ async function logout() {
 async function loadProfile() {
   if (!currentUser) return;
   const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  if (error) { toast('Erreur chargement profil', 'error'); return; }
+  if (error) {
+    console.error('loadProfile error:', error);
+    throw error;
+  }
   currentProfile = data;
+  console.log('Profile loaded:', currentProfile?.email, currentProfile?.role);
 }
 
 // ==========================================
