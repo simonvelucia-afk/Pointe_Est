@@ -865,7 +865,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
       <div class="admin-tabs">
         <button class="admin-tab active" onclick="switchTripsTab('available')">Trajets disponibles</button>
-        <button class="admin-tab" onclick="switchTripsTab('requests')">Demandes passagers</button>
+        <button class="admin-tab" id="requests-tab" onclick="switchTripsTab('requests')">Demandes passagers</button>
         <button class="admin-tab" onclick="switchTripsTab('mine')">Mes trajets</button>
         <button class="admin-tab" id="driver-tab" style="display:none" onclick="switchTripsTab('driving')">En tant que chauffeur</button>
       </div>
@@ -1963,6 +1963,7 @@ async function loadTrips() {
   const isDriver = currentProfile?.is_approved_driver;
   document.getElementById('btn-create-trip').style.display = isDriver && !isDemo ? '' : 'none';
   document.getElementById('driver-tab').style.display = isDriver ? '' : 'none';
+  document.getElementById('requests-tab').style.display = '';
   await renderTripsTab();
 }
 
@@ -2375,6 +2376,163 @@ async function submitCreateTrip() {
   toast('Trajet publié !', 'success');
   closeModal('modal-create-trip');
   loadTrips();
+}
+
+// ==========================================
+// PASSENGER REQUESTS
+// ==========================================
+async function renderPassengerRequests() {
+  const grid = document.getElementById('trips-grid');
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement\u2026</div>';
+
+  const { data, error } = await sb.from('passenger_requests')
+    .select('*')
+    .eq('status', 'open')
+    .order('desired_date', { ascending: true });
+
+  const requests = data || [];
+
+  let addBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+    <button class="btn btn-primary btn-sm" onclick="openPassengerRequest()">+ Publier une demande</button>
+  </div>`;
+
+  if (!requests.length) {
+    grid.innerHTML = addBtn + '<div class="empty-state"><div class="empty-icon">🙋</div><p>Aucune demande de trajet pour le moment</p></div>';
+    return;
+  }
+
+  const isDriver = currentProfile?.is_approved_driver && !isDemo;
+
+  grid.innerHTML = addBtn + `<div class="cards-grid">${requests.map(r => `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${escHtml(r.from_location)} → ${escHtml(r.to_location)}</div>
+          <div class="card-subtitle">${r.requester_name ? escHtml(r.requester_name) : 'Anonyme'}</div>
+        </div>
+        <span class="badge badge-yellow">Ouvert</span>
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">📅 ${r.desired_date ? new Date(r.desired_date).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</span>
+        <span class="meta-item">👥 ${r.seats || 1} passager(s)</span>
+        ${r.luggage ? `<span class="meta-item">🧳 ${r.luggage} pi³</span>` : ''}
+      </div>
+      ${r.notes ? `<div style="font-size:.85rem;color:var(--text2);margin-top:6px">${escHtml(r.notes)}</div>` : ''}
+      <div class="card-actions">
+        ${isDriver ? `<button class="btn btn-primary btn-sm" onclick="openDriverOffer('${r.id}', '${escHtml(r.from_location)}', '${escHtml(r.to_location)}')">Proposer un trajet</button>` : ''}
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function openPassengerRequest() {
+  // Populate time select
+  const sel = document.getElementById('pr-time');
+  sel.innerHTML = Array.from({ length: 48 }, (_, i) => {
+    const h = String(Math.floor(i / 2)).padStart(2, '0');
+    const m = i % 2 === 0 ? '00' : '30';
+    return `<option value="${h}:${m}">${h}:${m}</option>`;
+  }).join('');
+  sel.value = '09:00';
+
+  // Set default date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('pr-date').value = tomorrow.toISOString().split('T')[0];
+  document.getElementById('pr-from').value = '';
+  document.getElementById('pr-to').value = '';
+  document.getElementById('pr-seats').value = '1';
+  document.getElementById('pr-luggage').value = '0';
+
+  // Show demo notice if needed
+  document.getElementById('pr-demo-notice').style.display = isDemo ? 'block' : 'none';
+  if (isDemo) {
+    document.getElementById('pr-demo-name').value = '';
+    document.getElementById('pr-demo-email').value = '';
+  }
+
+  openModal('modal-passenger-request');
+}
+
+async function submitPassengerRequest() {
+  const from = document.getElementById('pr-from').value.trim();
+  const to = document.getElementById('pr-to').value.trim();
+  const date = document.getElementById('pr-date').value;
+  const time = document.getElementById('pr-time').value;
+  const seats = parseInt(document.getElementById('pr-seats').value) || 1;
+  const luggage = parseFloat(document.getElementById('pr-luggage').value) || 0;
+
+  if (!from || !to || !date) { toast('Veuillez remplir départ, destination et date', 'error'); return; }
+
+  const desired_date = `${date}T${time}:00`;
+  let requester_name = currentProfile?.full_name || null;
+  let requester_email = currentProfile?.email || null;
+  let requester_id = isDemo ? null : currentProfile?.id;
+
+  if (isDemo) {
+    requester_name = document.getElementById('pr-demo-name').value.trim() || 'Utilisateur démo';
+    requester_email = document.getElementById('pr-demo-email').value.trim() || null;
+  }
+
+  const { error } = await sb.from('passenger_requests').insert({
+    from_location: from,
+    to_location: to,
+    desired_date,
+    seats,
+    luggage,
+    requester_id,
+    requester_name,
+    requester_email,
+    status: 'open',
+    is_demo: isDemo
+  });
+
+  if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+
+  toast('Demande publiée ! Un chauffeur pourra vous contacter.', 'success');
+  closeModal('modal-passenger-request');
+  renderPassengerRequests();
+}
+
+async function openDriverOffer(requestId, from, to) {
+  document.getElementById('driver-offer-content').innerHTML = `
+    <div class="info-box" style="margin-bottom:14px">
+      <strong>${escHtml(from)} → ${escHtml(to)}</strong>
+    </div>`;
+
+  const { data: vehicles } = await sb.from('vehicles').select('*').eq('is_available', true);
+  document.getElementById('offer-vehicle').innerHTML = (vehicles || []).map(v =>
+    `<option value="${v.id}">${v.model} (${v.license_plate})</option>`
+  ).join('') || '<option value="">Aucun véhicule disponible</option>';
+
+  document.getElementById('offer-luggage').value = '0';
+  document.getElementById('offer-message').value = '';
+
+  // Store request id on the button
+  document.querySelector('#modal-driver-offer .btn-primary').setAttribute('data-request-id', requestId);
+  openModal('modal-driver-offer');
+}
+
+async function submitDriverOffer() {
+  const requestId = document.querySelector('#modal-driver-offer .btn-primary').getAttribute('data-request-id');
+  const vehicleId = document.getElementById('offer-vehicle').value;
+  const luggage = parseFloat(document.getElementById('offer-luggage').value) || 0;
+  const message = document.getElementById('offer-message').value.trim();
+
+  if (!vehicleId) { toast('Veuillez sélectionner un véhicule', 'error'); return; }
+
+  const { error } = await sb.from('driver_offers').insert({
+    request_id: requestId,
+    driver_id: currentProfile.id,
+    vehicle_id: vehicleId,
+    luggage_accepted: luggage,
+    message: message || null
+  });
+
+  if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+
+  toast('Proposition envoyée au passager !', 'success');
+  closeModal('modal-driver-offer');
 }
 
 // ==========================================
