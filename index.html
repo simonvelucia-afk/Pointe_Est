@@ -1759,10 +1759,7 @@ function renderSpaces(spaces) {
       </div>
       <div class="card-price">${price.toFixed(2)} $ <small style="font-size:.75rem;color:var(--text2)">/ 15 min</small></div>
       <div class="card-actions">
-        ${!isDemo 
-          ? `<button class="btn btn-primary btn-sm" onclick="openBookSpace('${s.id}', '${escHtml(s.name)}')">Réserver</button>`
-          : `<button class="btn btn-secondary btn-sm" disabled>Démo — lecture seule</button>`
-        }
+        <button class="btn btn-primary btn-sm" onclick="openBookSpace('${s.id}', '${escHtml(s.name)}')">Réserver</button>
       </div>
     </div>`;
   }).join('');
@@ -1956,9 +1953,8 @@ function renderAvailableTrips(trips) {
         ${t.price_per_minute ? `<span class="meta-item">${t.price_per_minute}/min + ${t.price_per_km}/km</span>` : ''}
       </div>
       <div class="card-actions">
-        ${!isDemo && currentProfile?.id !== t.driver_id && seatsLeft > 0
+        ${currentProfile?.id !== t.driver_id && seatsLeft > 0
           ? `<button class="btn btn-primary btn-sm" onclick="openBookTrip('${t.id}')">Demander une place</button>`
-          : isDemo ? `<button class="btn btn-secondary btn-sm" disabled>Démo</button>`
           : ''
         }
         <button class="btn btn-secondary btn-sm" onclick="openTripDetail('${t.id}')">Détails</button>
@@ -2062,13 +2058,6 @@ function openBookTrip(tripId) {
 }
 
 async function submitTripBooking() {
-  if (isDemo) {
-    await logRequest(currentBookingTripId, 'trip', 'request', { demo: true });
-    toast('Mode démo: demande enregistrée sans réservation réelle', 'info');
-    closeModal('modal-book-trip');
-    return;
-  }
-
   const pickup = document.getElementById('booking-pickup').value;
   const dropoff = document.getElementById('booking-dropoff').value;
   const seats = parseInt(document.getElementById('booking-seats').value) || 1;
