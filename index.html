@@ -2381,7 +2381,7 @@ async function openRequestOffers(requestId) {
 
   let offersHtml = '';
   if (!offers || !offers.length) {
-    offersHtml = '<p style="color:var(--text3);font-size:.9rem;margin-top:8px">Aucune proposition de chauffeur pour l'instant.</p>';
+    offersHtml = '<p style="color:var(--text3);font-size:.9rem;margin-top:8px">Aucune proposition de chauffeur pour l\'instant.</p>';
   } else {
     offersHtml = offers.map(o => `
       <div class="passenger-row">
@@ -2410,7 +2410,7 @@ async function openRequestOffers(requestId) {
     <p class="form-section-title">Propositions des chauffeurs</p>
     <div class="passengers-list">${offersHtml}</div>`;
   document.getElementById('trip-detail-footer').innerHTML =
-    '<button class="btn btn-secondary" onclick="closeModal('modal-trip-detail')">Fermer</button>';
+    '<button class="btn btn-secondary" onclick="closeModal(\'modal-trip-detail\')">Fermer</button>';
   openModal('modal-trip-detail');
 }
 
