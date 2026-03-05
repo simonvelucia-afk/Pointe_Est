@@ -1539,7 +1539,7 @@ function showApp() {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   buildNav();
-  navigateTo('dashboard');
+  navigateTo(isDemo ? 'spaces' : 'dashboard');
 }
 
 function buildNav() {
@@ -1894,6 +1894,10 @@ async function renderTripsTab() {
   if (currentTripsTab === 'available') {
     query = query.eq('status', 'published').gt('departure_time', new Date().toISOString());
   } else if (currentTripsTab === 'mine') {
+    if (isDemo) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><p>Connectez-vous pour voir vos réservations</p></div>';
+      return;
+    }
     query = query.eq('passenger_join', currentProfile?.id);
     // Fallback: get bookings
     const { data: bookings } = await sb.from('trip_bookings')
@@ -2058,6 +2062,11 @@ function openBookTrip(tripId) {
 }
 
 async function submitTripBooking() {
+  if (isDemo) {
+    toast('Mode démo — demande simulée avec succès !', 'success');
+    closeModal('modal-book-trip');
+    return;
+  }
   const pickup = document.getElementById('booking-pickup').value;
   const dropoff = document.getElementById('booking-dropoff').value;
   const seats = parseInt(document.getElementById('booking-seats').value) || 1;
