@@ -1815,7 +1815,7 @@ function statusLabel(s) {
 // ==========================================
 async function loadSpaces() {
   const grid = document.getElementById('spaces-grid');
-  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement…</div>';
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement\u2026</div>';
   const { data, error } = await sb.from('common_spaces')
     .select('*, space_pricing(price_per_slot)')
     .eq('is_available', true)
@@ -1848,7 +1848,7 @@ function renderSpaces(spaces) {
       </div>
       <div class="card-price">${price.toFixed(2)} $ <small style="font-size:.75rem;color:var(--text2)">/ 15 min</small></div>
       <div class="card-actions">
-        <button class="btn btn-primary btn-sm" onclick="openBookSpace('${s.id}', '${escHtml(s.name)}')">Réserver</button>
+        ${!isDemo ? `<button class="btn btn-primary btn-sm" onclick="openBookSpace('${s.id}', '${escHtml(s.name)}')">Réserver</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1976,7 +1976,7 @@ function switchTripsTab(tab) {
 
 async function renderTripsTab() {
   const grid = document.getElementById('trips-grid');
-  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement…</div>';
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement\u2026</div>';
 
   let query = sb.from('trips_with_details').select('*');
 
