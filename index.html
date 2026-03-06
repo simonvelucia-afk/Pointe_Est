@@ -1447,6 +1447,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Listen for auth changes (login/logout)
   sb.auth.onAuthStateChange(async (event, session) => {
+    if (isDemo) return;
     console.log('Auth event:', event, session?.user?.email);
     if (event === 'SIGNED_IN' && session) {
       currentUser = session.user;
@@ -1820,7 +1821,10 @@ async function loadSpaces() {
     .select('*, space_pricing(price_per_slot)')
     .eq('is_available', true)
     .order('name');
-  if (error) { grid.innerHTML = '<div class="empty-state"><p>Erreur de chargement</p></div>'; return; }
+  if (error) {
+    grid.innerHTML = `<div class="empty-state"><p>Erreur de chargement${isDemo ? ' — vérifiez les permissions RLS sur common_spaces (lecture publique requise) : ' + error.message : ''}</p></div>`;
+    return;
+  }
   spacesCache = data || [];
   renderSpaces(spacesCache);
 }
