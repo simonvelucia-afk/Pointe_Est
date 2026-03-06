@@ -2392,7 +2392,7 @@ async function renderPassengerRequests() {
   const { data, error } = await sb.from('passenger_requests')
     .select('*')
     .eq('status', 'open')
-    .order('desired_date', { ascending: true });
+    .order('desired_datetime', { ascending: true });
 
   const requests = data || [];
 
@@ -2411,19 +2411,19 @@ async function renderPassengerRequests() {
     <div class="card">
       <div class="card-header">
         <div>
-          <div class="card-title">${escHtml(r.from_location)} → ${escHtml(r.to_location)}</div>
+          <div class="card-title">${escHtml(r.departure_point)} → ${escHtml(r.destination)}</div>
           <div class="card-subtitle">${r.requester_name ? escHtml(r.requester_name) : 'Anonyme'}</div>
         </div>
         <span class="badge badge-yellow">Ouvert</span>
       </div>
       <div class="card-meta">
-        <span class="meta-item">📅 ${r.desired_date ? new Date(r.desired_date).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</span>
-        <span class="meta-item">👥 ${r.seats || 1} passager(s)</span>
-        ${r.luggage ? `<span class="meta-item">🧳 ${r.luggage} pi³</span>` : ''}
+        <span class="meta-item">📅 ${r.desired_datetime ? new Date(r.desired_datetime).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</span>
+        <span class="meta-item">👥 ${r.seats_requested || 1} passager(s)</span>
+        ${r.luggage_ft3 ? `<span class="meta-item">🧳 ${r.luggage_ft3} pi³</span>` : ''}
       </div>
       ${r.notes ? `<div style="font-size:.85rem;color:var(--text2);margin-top:6px">${escHtml(r.notes)}</div>` : ''}
       <div class="card-actions">
-        ${isDriver ? `<button class="btn btn-primary btn-sm" onclick="openDriverOffer('${r.id}', '${escHtml(r.from_location)}', '${escHtml(r.to_location)}')">Proposer un trajet</button>` : ''}
+        ${isDriver ? `<button class="btn btn-primary btn-sm" onclick="openDriverOffer('${r.id}', '${escHtml(r.departure_point)}', '${escHtml(r.destination)}')">Proposer un trajet</button>` : ''}
       </div>
     </div>
   `).join('')}</div>`;
@@ -2479,11 +2479,11 @@ async function submitPassengerRequest() {
   }
 
   const { error } = await sb.from('passenger_requests').insert({
-    from_location: from,
-    to_location: to,
-    desired_date,
-    seats,
-    luggage,
+    departure_point: from,
+    destination: to,
+    desired_datetime: `${date}T${time}:00`,
+    seats_requested: seats,
+    luggage_ft3: luggage,
     requester_id,
     requester_name,
     requester_email,
