@@ -2535,11 +2535,30 @@ async function submitReset() {
     return;
   }
 
-  btn.textContent = '⏳ Envoi…';
+  btn.textContent = '⏳ Vérification…';
 
   try {
+    // Vérifier si l'email existe dans la base
+    const { data: profiles } = await sb
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .limit(1);
+
+    if (!profiles || profiles.length === 0) {
+      msg.style.background = 'rgba(224,112,96,0.08)';
+      msg.style.borderColor = 'rgba(224,112,96,0.3)';
+      msg.style.color = 'var(--accent3)';
+      msg.textContent = 'Aucun compte trouvé avec cette adresse courriel.';
+      msg.style.display = 'block';
+      btn.textContent = 'Envoyer le lien';
+      return;
+    }
+
+    btn.textContent = '⏳ Envoi…';
     const { error } = await sb.auth.resetPasswordForEmail(email);
     if (error) throw error;
+
     msg.style.background = 'rgba(126,184,160,0.08)';
     msg.style.borderColor = 'rgba(126,184,160,0.3)';
     msg.style.color = 'var(--accent2)';
