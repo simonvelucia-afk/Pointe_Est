@@ -3792,7 +3792,9 @@ async function loadTransactions() {
   `).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--text3)">${pt("Aucune transaction")}</td></tr>`;
 }
 
-function txLabel(type) {
+function txLabel(type, description) {
+  // Si la description mentionne Machine lunch, afficher comme tel
+  if (description && description.includes('Machine lunch')) return 'Machine Lunch';
   const labels = {
     admin_credit: 'Crédit par administrateur', space_reservation: 'Réservation espace',
     space_cancel_refund: 'Remboursement espace', trip_booking: 'Réservation covoiturage',
@@ -5950,7 +5952,7 @@ async function lmDebitTenant(tenantId, amount, slotId, slotDesc) {
   const { error } = await sb.rpc('adjust_balance', {
     p_user_id: tenantId,
     p_amount: -amount,
-    p_type: 'lunch_machine',
+    p_type: 'space_reservation',
     p_description: `Machine lunch — Case #${slotId}: ${slotDesc}`
   });
   if (error) console.error('[lmDebitTenant]', JSON.stringify(error));
