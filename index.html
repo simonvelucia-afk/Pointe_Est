@@ -1514,7 +1514,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <!-- sous-onglets LM -->
         <div style="display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px;margin-bottom:20px;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm lm-admin-tab active" id="lm-tab-cases" onclick="lmAdminNav('cases')">Cases</button>
-          <button class="btn btn-secondary btn-sm lm-admin-tab" id="lm-tab-creneaux" onclick="lmAdminNav('creneaux')">⏰ Créneaux</button>
           <button class="btn btn-secondary btn-sm lm-admin-tab" id="lm-tab-temperatures" onclick="lmAdminNav('temperatures')">Températures</button>
           <button class="btn btn-secondary btn-sm lm-admin-tab" id="lm-tab-config" onclick="lmAdminNav('config')">Configuration</button>
           <button class="btn btn-secondary btn-sm lm-admin-tab" id="lm-tab-status" onclick="lmAdminNav('status')">Statuts</button>
@@ -2488,10 +2487,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (document.getElementById('reset-password-modal').style.display === 'flex') return;
       currentUser = session.user;
       await initApp();
+      _resetAutoLogout(); // Démarrer le timer d'inactivité
     } else if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
       isDemo = false;
+      clearTimeout(_autoLogoutTimer); // Arrêter le timer
+      _autoLogoutTimer = null;
       showLogin();
     }
   });
@@ -5914,6 +5916,48 @@ window.gantryWaitingPickup = false;
 function loadLunchAdmin() {
   lmAdminNav('cases');
 }
+
+// ═══════════════════════════════════════════════
+//  AUTO-LOGOUT
+// ═══════════════════════════════════════════════
+const AUTO_LOGOUT_MS = 5 * 60 * 1000; // 5 minutes d'inactivité
+let _autoLogoutTimer = null;
+
+function _resetAutoLogout() {
+  // Ne s'active que si un utilisateur est connecté (pas démo)
+  if (!currentUser || isDemo) return;
+  clearTimeout(_autoLogoutTimer);
+  _autoLogoutTimer = setTimeout(_doAutoLogout, AUTO_LOGOUT_MS);
+}
+
+async function _doAutoLogout() {
+  if (!currentUser || isDemo) return;
+  await sb.auth.signOut();
+  // showLogin sera appelé via l'écouteur onAuthStateChange
+}
+
+// Réinitialiser le timer à chaque interaction utilisateur
+['mousemove','mousedown','keydown','touchstart','scroll','click','wheel'].forEach(evt => {
+  document.addEventListener(evt, _resetAutoLogout, { passive: true });
+});
+
+// Auto-logout quand l'onglet est masqué (fermé, changé d'onglet, app minimisée)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && currentUser && !isDemo) {
+    // Délai court : si l'utilisateur revient dans les 10s on annule
+    _autoLogoutTimer = setTimeout(_doAutoLogout, 10 * 1000);
+  } else if (document.visibilityState === 'visible') {
+    _resetAutoLogout();
+  }
+});
+
+// Logout immédiat à la fermeture de la fenêtre/onglet
+window.addEventListener('beforeunload', () => {
+  if (currentUser && !isDemo) {
+    // beforeunload ne supporte pas async — on utilise sendBeacon ou signOut sync
+    sb.auth.signOut();
+  }
+});
 </script>
 
 <!-- Modal réinitialisation mot de passe -->
