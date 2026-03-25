@@ -1186,11 +1186,19 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
       <div class="form-group">
         <label>Adresse courriel</label>
-        <input type="email" id="auth-email" placeholder="votre@email.com" autocomplete="off" autocorrect="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="document.getElementById('auth-error').style.display='none'">
+        <input type="text" id="auth-email" placeholder="votre@email.com"
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          oninput="document.getElementById('auth-error').style.display='none'">
       </div>
       <div class="form-group">
         <label>Mot de passe</label>
-        <input type="password" id="auth-password" placeholder="••••••••" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" oninput="document.getElementById('auth-error').style.display='none'" onkeydown="if(event.key==='Enter')authSubmit()">
+        <div style="position:relative;">
+          <input type="text" id="auth-password" placeholder="••••••••"
+            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            style="-webkit-text-security:disc;font-family:monospace;"
+            oninput="document.getElementById('auth-error').style.display='none'"
+            onkeydown="if(event.key==='Enter')authSubmit()">
+        </div>
         <div style="text-align:right;margin-top:6px;">
           <button type="button" onclick="showResetForm()" style="background:none;border:none;color:var(--text2);font-size:0.82rem;cursor:pointer;padding:0;font-family:var(--font-sans);" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text2)'">Mot de passe oublié ?</button>
         </div>
@@ -2456,18 +2464,11 @@ let currentBookingTripId = null;
 // INIT
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Vider immédiatement email + password pour bloquer l'autofill du navigateur
+  // Vider les champs au chargement
   const _e = document.getElementById('auth-email');
   const _p = document.getElementById('auth-password');
-  if (_e) { _e.value = ''; _e.setAttribute('readonly', true); }
-  if (_p) { _p.value = ''; _p.setAttribute('readonly', true); }
-  // Second passage après 200ms (Chrome applique l'autofill après le rendu)
-  setTimeout(() => {
-    const e2 = document.getElementById('auth-email');
-    const p2 = document.getElementById('auth-password');
-    if (e2) e2.value = '';
-    if (p2) p2.value = '';
-  }, 200);
+  if (_e) _e.value = '';
+  if (_p) _p.value = '';
   // Set today's date as default
   const today = new Date().toISOString().split('T')[0];
   const spacesDate = document.getElementById('spaces-date');
@@ -2801,15 +2802,10 @@ async function loadProfile() {
 function showLogin() {
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
-  // Vider email ET mot de passe à chaque affichage — empêche l'autofill mémorisé
-  setTimeout(() => {
-    const email = document.getElementById('auth-email');
-    const pwd = document.getElementById('auth-password');
-    if (email) { email.value = ''; email.setAttribute('readonly', true); }
-    if (pwd)   { pwd.value   = ''; pwd.setAttribute('readonly', true); }
-    // Forcer le focus sur un élément neutre pour que le navigateur ne remplisse pas les champs
-    document.getElementById('login-page').focus();
-  }, 50);
+  const email = document.getElementById('auth-email');
+  const pwd = document.getElementById('auth-password');
+  if (email) email.value = '';
+  if (pwd) pwd.value = '';
 }
 
 function showApp() {
