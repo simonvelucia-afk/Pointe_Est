@@ -2457,12 +2457,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const spacesDate = document.getElementById('spaces-date');
   if (spacesDate) spacesDate.value = today;
 
-  // Check existing session on load
+  // sessionStorage est vide si la fenêtre a été fermée (contrairement à localStorage)
+  // On l'utilise pour détecter une réouverture après fermeture
+  const wasSessionActive = sessionStorage.getItem('sb_session_active');
   const { data: { session } } = await sb.auth.getSession();
+
+  if (session && !wasSessionActive) {
+    // Session trouvée mais sessionStorage vide = fenêtre fermée sans logout → forcer logout
+    await sb.auth.signOut();
+    showLogin();
+    return;
+  }
   console.log('Initial session:', session?.user?.email || 'none');
 
-  if (session) {
+  if (session && wasSessionActive) {
     currentUser = session.user;
+    sessionStorage.setItem('sb_session_active', '1');
     await initApp();
     _resetAutoLogout();
   } else {
@@ -2487,14 +2497,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (document.getElementById('reset-password-modal').style.display === 'flex') return;
       currentUser = session.user;
+      sessionStorage.setItem('sb_session_active', '1');
       await initApp();
-      _resetAutoLogout(); // Démarrer le timer d'inactivité
+      _resetAutoLogout();
     } else if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
       isDemo = false;
       clearTimeout(_autoLogoutTimer);
       _autoLogoutTimer = null;
+      sessionStorage.removeItem('sb_session_active');
       showLogin();
     }
   });
@@ -5985,10 +5997,17 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// À la fermeture : supprimer le token Supabase du localStorage (synchrone, garanti)
+// À la fermeture : supprimer tous les tokens Supabase (synchrone, garanti)
 window.addEventListener('beforeunload', () => {
   if (currentUser && !isDemo) {
-    localStorage.removeItem(SB_TOKEN_KEY);
+    // Supprimer toutes les clés Supabase du localStorage
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('sb-') || k.includes('supabase') || k.includes('gotrue')) {
+        localStorage.removeItem(k);
+      }
+    });
+    // Marquer aussi dans sessionStorage (survit au rechargement mais pas à la fermeture)
+    sessionStorage.removeItem('sb_session_active');
   }
 });
 </script>
