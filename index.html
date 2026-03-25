@@ -836,9 +836,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     display:flex; flex-direction:row; overflow:hidden;
   }
 
-  /* Left: machine photo */
+  /* Machine: full width */
   #lm-app .home-machine-side {
-    width:531px; flex-shrink:0; position:relative; overflow:hidden; height:calc(480px - 40px - 28px);
+    width:100%; flex:1; position:relative; overflow:hidden; height:calc(480px - 40px - 28px);
   }
   #lm-app .home-machine-img { display:none; }
 
@@ -1631,6 +1631,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <div id="screen-home" class="screen active">
     <div class="topbar">
       <div class="topbar-title" id="topbar-title-home"><span id="tth-main"></span> <span id="tth-sub" style="color:var(--accent);"></span></div>
+      <div class="topbar-sep"></div>
+      <div id="home-stats" style="display:flex;gap:16px;align-items:center;"></div>
       <!-- Bouton admin retiré: accès via Admin PE -->
     </div>
     <div class="content">
@@ -1893,24 +1895,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
   <div id="machine-zone-overlays" style="display:none;"></div>
 </div>
-<!-- CTA side -->
-      <div class="home-cta-side">
-        <div>
-          <div class="home-title" data-i18n="homeTitle" data-i18n-html="1">Votre <span>repas</span><br>vous attend.</div>
-          <div class="home-subtitle" style="margin-top:8px;" data-i18n="homeSubtitle" data-i18n-html="1">Sélectionnez une action pour accéder<br>aux cases réfrigérées et tempérées.</div>
-        </div>
-        <div class="home-stats" id="home-stats"></div>
-        <div class="home-btns">
-          <button class="btn-big primary" onclick="lmShowScreen('screen-grid')">
-            <div class="btn-icon">🍱</div>
-            <div class="btn-texts">
-              <div data-i18n="btnBuy">Acheter une case</div>
-              <div class="btn-sub" data-i18n="btnBuySub">Sélectionner et confirmer</div>
-            </div>
-            <div class="btn-arrow">›</div>
-          </button>
-        </div>
-      </div>
+<!-- end machine -->
     </div>
   </div>
 
@@ -4957,15 +4942,25 @@ function lmStepZone(panel, dir) {
 function lmRenderHomeStats() {
   const filled = lmState.slots.filter(s=>s.desc).length;
   const withPrice = lmState.slots.filter(s=>s.desc&&s.price>0).length;
-  const empty = lmState.slots.length - filled;
   const el = document.getElementById('home-stats');
   if(el) {
     el.innerHTML = `
-      <div class="home-stat"><div class="home-stat-val">${filled}</div><div class="home-stat-label">${lmT('statAvailable')}</div></div>
-      <div class="home-stat"><div class="home-stat-val" style="color:var(--accent)">${withPrice}</div><div class="home-stat-label">${lmT('statForSale')}</div></div>
-      <div class="home-stat"><div class="home-stat-val" style="color:var(--success)">${lmState.boxCount}</div><div class="home-stat-label" style="color:var(--text-faint);">${lmT('statBoxes')} / ${lmState.boxMax}</div></div>`;
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--text);">${filled}</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);">${lmT('statAvailable')}</span>
+      </div>
+      <div style="width:1px;height:16px;background:var(--border);"></div>
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);">${withPrice}</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);">${lmT('statForSale')}</span>
+      </div>
+      <div style="width:1px;height:16px;background:var(--border);"></div>
+      <div style="display:flex;align-items:center;gap:5px;">
+        <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--success);">${lmState.boxCount}</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);">${lmT('statBoxes')} / ${lmState.boxMax}</span>
+      </div>`;
   }
-  // Update return button lmState
+  // Update return button state
   const btn = document.getElementById('btn-return-box');
   const rbc = document.getElementById('ret-box-count');
   if(btn) btn.disabled = (lmState.boxCount >= lmState.boxMax);
