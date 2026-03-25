@@ -4646,19 +4646,25 @@ function pt(key) {
 }
 
 function ptApply() {
-  // Translate static elements with data-pt attribute
+  // Translate all static elements with data-pt attribute
   document.querySelectorAll('[data-pt]').forEach(el => {
     el.textContent = pt(el.dataset.pt);
   });
-  // Re-render current page if loaded
+  // Update search placeholder
+  const spacesSearch = document.getElementById('spaces-search');
+  if (spacesSearch) spacesSearch.placeholder = pt('Rechercher un espace…');
+  // Re-render current active page
   const activePage = document.querySelector('.page.active');
-  if (activePage) {
-    const pageId = activePage.id;
-    if (pageId === 'page-dashboard' && typeof loadDashboard === 'function') loadDashboard();
-    else if (pageId === 'page-spaces' && typeof loadSpaces === 'function') loadSpaces();
-    else if (pageId === 'page-trips' && typeof loadTrips === 'function') loadTrips();
-    else if (pageId === 'page-transactions' && typeof loadTransactions === 'function') loadTransactions();
-    else if (pageId === 'page-admin' && typeof loadAdmin === 'function') loadAdmin();
+  if (activePage && typeof navigateTo === 'function') {
+    const map = {
+      'page-dashboard': 'dashboard',
+      'page-spaces': 'spaces',
+      'page-trips': 'trips',
+      'page-transactions': 'transactions',
+      'page-admin': 'admin',
+    };
+    const page = map[activePage.id];
+    if (page) navigateTo(page);
   }
 }
 
