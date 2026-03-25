@@ -2349,15 +2349,21 @@ let currentBookingTripId = null;
 // INIT
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Récupérer le hash Supabase sauvegardé par 404.html si présent
-  var savedHash = sessionStorage.getItem('supabase_hash');
-  if (savedHash && !window.location.hash) {
-    sessionStorage.removeItem('supabase_hash');
-    window.location.hash = savedHash.replace(/^#/, '');
-    return; // Laisser le rechargement avec le hash se faire
+  // Récupérer le hash Supabase depuis sessionStorage (mis par 404.html)
+  var savedHash = sessionStorage.getItem('supabase_redirect_hash');
+  if (savedHash && savedHash.length > 1) {
+    sessionStorage.removeItem('supabase_redirect_hash');
+    if (savedHash.includes('type=recovery')) {
+      sessionStorage.setItem('pw_recovery', '1');
+    }
+    // Injecter le hash dans l'URL pour que Supabase le traite
+    window.location.replace(window.location.href.split('#')[0] + savedHash);
+    return;
   }
-  if (savedHash) {
-    sessionStorage.removeItem('supabase_hash');
+  // Détecter recovery directement dans le hash courant
+  var currentHash = window.location.hash;
+  if (currentHash.includes('type=recovery')) {
+    sessionStorage.setItem('pw_recovery', '1');
   }
   // Set today's date as default
   const today = new Date().toISOString().split('T')[0];
@@ -2380,10 +2386,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isDemo) return;
     console.log('Auth event:', event, session?.user?.email);
     if (event === 'PASSWORD_RECOVERY') {
-      // Token de réinitialisation détecté — afficher le formulaire
       showResetPasswordModal();
     } else if (event === 'SIGNED_IN' && session) {
-      // Ne pas charger l'app si on est en mode réinitialisation
+      // Vérifier si c'est une session de récupération de mot de passe
+      // en regardant l'URL hash ou un flag sessionStorage
+      var isRecovery = window.location.hash.includes('type=recovery')
+        || sessionStorage.getItem('pw_recovery') === '1';
+      if (isRecovery) {
+        sessionStorage.removeItem('pw_recovery');
+        showResetPasswordModal();
+        return;
+      }
       if (document.getElementById('reset-password-modal').style.display === 'flex') return;
       currentUser = session.user;
       await initApp();
