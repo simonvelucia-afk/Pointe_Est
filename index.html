@@ -2349,6 +2349,16 @@ let currentBookingTripId = null;
 // INIT
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
+  // Récupérer le hash Supabase sauvegardé par 404.html si présent
+  var savedHash = sessionStorage.getItem('supabase_hash');
+  if (savedHash && !window.location.hash) {
+    sessionStorage.removeItem('supabase_hash');
+    window.location.hash = savedHash.replace(/^#/, '');
+    return; // Laisser le rechargement avec le hash se faire
+  }
+  if (savedHash) {
+    sessionStorage.removeItem('supabase_hash');
+  }
   // Set today's date as default
   const today = new Date().toISOString().split('T')[0];
   const spacesDate = document.getElementById('spaces-date');
