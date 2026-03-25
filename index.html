@@ -2803,6 +2803,16 @@ function showLogin() {
     inp.setAttribute('autocapitalize', 'off');
     inp.setAttribute('spellcheck', 'false');
     inp.oninput = () => { document.getElementById('auth-error').style.display = 'none'; };
+    // Quand l'email change (surtout via sélection dropdown), vider le mot de passe
+    inp.addEventListener('change', () => {
+      const pwd = document.getElementById('auth-password');
+      if (pwd) pwd.value = '';
+    });
+    inp.addEventListener('input', () => {
+      const pwd = document.getElementById('auth-password');
+      if (pwd) pwd.value = '';
+      document.getElementById('auth-error').style.display = 'none';
+    });
     emailWrap.appendChild(inp);
   }
 
@@ -2819,6 +2829,22 @@ function showLogin() {
     inp.style.cssText = '-webkit-text-security:disc;font-family:monospace;';
     inp.oninput = () => { document.getElementById('auth-error').style.display = 'none'; };
     inp.onkeydown = (e) => { if (e.key === 'Enter') authSubmit(); };
+
+    // Vider le champ si le navigateur l'a rempli automatiquement (autofill détecté)
+    let _userTyped = false;
+    inp.addEventListener('keydown', () => { _userTyped = true; });
+    inp.addEventListener('input', (e) => {
+      if (!_userTyped) { inp.value = ''; }
+      _userTyped = false;
+      document.getElementById('auth-error').style.display = 'none';
+    });
+    // Surveiller en continu pendant 3s après affichage pour détecter autofill silencieux
+    let _watchCount = 0;
+    const _watch = setInterval(() => {
+      if (inp.value && !_userTyped) inp.value = '';
+      if (++_watchCount > 30) clearInterval(_watch);
+    }, 100);
+
     pwdWrap.appendChild(inp);
   }
 }
