@@ -2008,6 +2008,42 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     </div>
   </div>
 
+  <!-- PORTAL PURCHASE MODAL -->
+  <div class="modal-overlay" id="lm-purchase-modal">
+    <div class="modal" style="width:360px;">
+      <div class="modal-header">
+        <div class="modal-title">Confirmer l'achat</div>
+        <div class="modal-slot-num" id="lm-pm-slot-num"></div>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+        <!-- Résumé -->
+        <div id="lm-pm-summary" style="background:var(--bg);border:1px solid var(--border-active);border-radius:6px;padding:10px 14px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+            <div id="lm-pm-desc" style="font-size:14px;font-weight:500;color:var(--text);line-height:1.35;flex:1;"></div>
+            <div id="lm-pm-price" style="font-family:'Space Mono',monospace;font-size:20px;color:var(--accent);font-weight:700;flex-shrink:0;"></div>
+          </div>
+        </div>
+        <!-- Sélecteur locataire -->
+        <div>
+          <label style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Locataire</label>
+          <select id="lm-tenant-select" onchange="lmOnTenantChange()" style="width:100%;">
+            <option value="">— Choisir un locataire —</option>
+          </select>
+        </div>
+        <!-- Solde -->
+        <div id="lm-tenant-balance-row" style="display:none;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:5px;">
+          <span style="font-size:12px;color:var(--text2);">Solde disponible</span>
+          <span id="lm-tenant-balance-val" style="font-family:'Space Mono',monospace;font-size:13px;color:var(--accent);font-weight:700;"></span>
+        </div>
+        <div id="lm-balance-warning" style="display:none;font-size:12px;color:var(--accent3);padding:6px 10px;background:rgba(220,80,60,.1);border-radius:4px;">⚠ Solde insuffisant pour cet achat.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="lmClosePurchaseModal()">Annuler</button>
+        <button class="btn accent" id="lm-confirm-btn" onclick="lmConfirmPurchase()" disabled style="opacity:.4;">Confirmer ✓</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SUCCESS -->
   <div class="success-flash" id="success-flash">
     <div class="sf-icon" id="sf-icon">✓</div>
@@ -5730,10 +5766,53 @@ function lmMigrateState(parsed) {
 
 // Sélecteur de locataires lors de l'achat
 async function lmStartPurchase(id) {
+  lmCloseModal();
+  lmSelectedSlotId = id;
   lmSelectedTenantId = null;
   lmSelectedTenantBalance = 0;
-  // appel de la fonction originale renommée
-  lmStartPurchaseKiosk(id);
+
+  const slot = lmState.slots.find(s => s.id === id);
+  if (!slot) return;
+  const priceStr = slot.price > 0 ? slot.price.toFixed(2) + ' $' : 'Gratuit';
+
+  // Populate summary
+  const pmDesc = document.getElementById('lm-pm-desc');
+  const pmPrice = document.getElementById('lm-pm-price');
+  const pmSlot = document.getElementById('lm-pm-slot-num');
+  if (pmDesc) pmDesc.textContent = slot.desc || '—';
+  if (pmPrice) pmPrice.textContent = priceStr;
+  if (pmSlot) pmSlot.textContent = '#' + slot.id;
+
+  // Reset UI
+  const balRow = document.getElementById('lm-tenant-balance-row');
+  const warn = document.getElementById('lm-balance-warning');
+  const btn = document.getElementById('lm-confirm-btn');
+  if (balRow) balRow.style.display = 'none';
+  if (warn) warn.style.display = 'none';
+  if (btn) { btn.disabled = true; btn.style.opacity = '.4'; }
+
+  // Populate tenant selector
+  if (!lmTenantsCache.length) await lmLoadTenants();
+  const sel = document.getElementById('lm-tenant-select');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Choisir un locataire —</option>';
+    lmTenantsCache.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.full_name + (t.unit ? ' — ' + t.unit : '');
+      opt.dataset.balance = t.virtual_balance || 0;
+      sel.appendChild(opt);
+    });
+    sel.value = '';
+  }
+
+  document.getElementById('lm-purchase-modal').classList.add('active');
+}
+
+function lmClosePurchaseModal() {
+  document.getElementById('lm-purchase-modal').classList.remove('active');
+  lmSelectedSlotId = null;
+  lmSelectedTenantId = null;
 }
 
 function lmOnTenantChange() {
@@ -5797,7 +5876,7 @@ async function lmConfirmPurchase() {
   if (lmState.boxCount > 0) lmState.boxCount--;
   slot.desc = ''; slot.price = 0; slot.reserved = false; slot.reservedBy = '';
   lmSaveState();
-  lmCloseNameModal();
+  lmClosePurchaseModal();
   lmRenderGrid();
   lmRenderHomeStats();
   lmRenderMachineSlots();
