@@ -1180,25 +1180,13 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         border:1px solid;
         line-height:1.5;
       "></div>
-      <!-- Champs factices pour bloquer le gestionnaire de mots de passe -->
-      <input type="email" style="display:none" aria-hidden="true" tabindex="-1">
-      <input type="password" style="display:none" aria-hidden="true" tabindex="-1">
-
       <div class="form-group">
         <label>Adresse courriel</label>
-        <input type="text" id="auth-email" placeholder="votre@email.com"
-          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-          oninput="document.getElementById('auth-error').style.display='none'">
+        <div id="auth-email-wrap"></div>
       </div>
       <div class="form-group">
         <label>Mot de passe</label>
-        <div style="position:relative;">
-          <input type="text" id="auth-password" placeholder="••••••••"
-            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-            style="-webkit-text-security:disc;font-family:monospace;"
-            oninput="document.getElementById('auth-error').style.display='none'"
-            onkeydown="if(event.key==='Enter')authSubmit()">
-        </div>
+        <div id="auth-password-wrap"></div>
         <div style="text-align:right;margin-top:6px;">
           <button type="button" onclick="showResetForm()" style="background:none;border:none;color:var(--text2);font-size:0.82rem;cursor:pointer;padding:0;font-family:var(--font-sans);" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text2)'">Mot de passe oublié ?</button>
         </div>
@@ -2464,11 +2452,8 @@ let currentBookingTripId = null;
 // INIT
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Vider les champs au chargement
-  const _e = document.getElementById('auth-email');
-  const _p = document.getElementById('auth-password');
-  if (_e) _e.value = '';
-  if (_p) _p.value = '';
+  // Créer les champs de login dynamiquement dès le départ
+  showLogin();
   // Set today's date as default
   const today = new Date().toISOString().split('T')[0];
   const spacesDate = document.getElementById('spaces-date');
@@ -2802,10 +2787,40 @@ async function loadProfile() {
 function showLogin() {
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
-  const email = document.getElementById('auth-email');
-  const pwd = document.getElementById('auth-password');
-  if (email) email.value = '';
-  if (pwd) pwd.value = '';
+
+  // Recréer les champs à chaque affichage — Chrome ne peut pas autofill un nouvel élément
+  const emailWrap = document.getElementById('auth-email-wrap');
+  const pwdWrap = document.getElementById('auth-password-wrap');
+
+  if (emailWrap) {
+    emailWrap.innerHTML = '';
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = 'auth-email';
+    inp.placeholder = 'votre@email.com';
+    inp.autocomplete = 'off';
+    inp.setAttribute('autocorrect', 'off');
+    inp.setAttribute('autocapitalize', 'off');
+    inp.setAttribute('spellcheck', 'false');
+    inp.oninput = () => { document.getElementById('auth-error').style.display = 'none'; };
+    emailWrap.appendChild(inp);
+  }
+
+  if (pwdWrap) {
+    pwdWrap.innerHTML = '';
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = 'auth-password';
+    inp.placeholder = '••••••••';
+    inp.autocomplete = 'off';
+    inp.setAttribute('autocorrect', 'off');
+    inp.setAttribute('autocapitalize', 'off');
+    inp.setAttribute('spellcheck', 'false');
+    inp.style.cssText = '-webkit-text-security:disc;font-family:monospace;';
+    inp.oninput = () => { document.getElementById('auth-error').style.display = 'none'; };
+    inp.onkeydown = (e) => { if (e.key === 'Enter') authSubmit(); };
+    pwdWrap.appendChild(inp);
+  }
 }
 
 function showApp() {
