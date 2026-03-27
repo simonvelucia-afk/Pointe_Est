@@ -4604,10 +4604,15 @@ async function saveTenant() {
   const balance = parseFloat(document.getElementById('tenant-balance').value) || 0;
 
   if (editingId) {
-    // Mise à jour des infos de base
-    const { error } = await sb.from('profiles').update({ full_name: name, unit, role, is_approved_driver: driver, is_active: active }).eq('id', editingId);
+    const { error } = await sb.rpc('admin_update_profile', {
+      p_user_id: editingId,
+      p_full_name: name,
+      p_unit: unit,
+      p_role: role,
+      p_is_approved_driver: driver,
+      p_is_active: active
+    });
     if (error) { toast('Erreur: ' + error.message, 'error'); return; }
-    // Mise à jour du solde via fonction sécurisée
     const { error: balErr } = await sb.rpc('admin_set_balance', { p_user_id: editingId, p_balance: balance });
     if (balErr) { toast('Infos sauvegardées mais erreur solde: ' + balErr.message, 'error'); return; }
     toast('Locataire mis à jour', 'success');
