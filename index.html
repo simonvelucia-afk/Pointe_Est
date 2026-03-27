@@ -3925,6 +3925,7 @@ async function openTripDetail(tripId) {
 }
 
 async function openAddDependentToTrip(tripId, seatsLeft) {
+  closeModal('modal-trip-detail');
   const { data: deps } = await sb.from('dependents')
     .select('id, name, age, allow_trips')
     .eq('parent_id', currentProfile.id)
@@ -3976,6 +3977,7 @@ async function submitDependentToTrip() {
 }
 
 function openDriverCargo(tripId, cargoLeft) {
+  closeModal('modal-trip-detail');
   document.getElementById('driver-cargo-trip-id').value = tripId;
   document.getElementById('driver-cargo-left').textContent = cargoLeft;
   // Build cargo options in steps of 10
