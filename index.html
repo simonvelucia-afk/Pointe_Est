@@ -2423,6 +2423,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </label>
     </div>
     <div class="form-group">
+      <label>
+        <input type="checkbox" id="tenant-active" style="width:auto;margin-right:6px" checked>
+        Compte actif
+      </label>
+    </div>
+    <div class="form-group">
       <label>Crédit initial (crédits)</label>
       <input type="number" id="tenant-balance" placeholder="0" min="0" value="0">
     </div>
@@ -4178,8 +4184,8 @@ async function loadTenants() {
   const { data } = await sb.from('profiles').select('*').neq('role', 'demo').order('full_name');
   tenantsCache = data || [];
   document.getElementById('tenants-tbody').innerHTML = tenantsCache.map(t => `
-    <tr>
-      <td>${escHtml(t.full_name)}</td>
+    <tr style="${t.is_active === false ? 'opacity:0.5' : ''}">
+      <td>${escHtml(t.full_name)}${t.is_active === false ? ' <span class="badge badge-gray" style="font-size:0.7rem;margin-left:4px">Inactif</span>' : ''}</td>
       <td>${t.unit || '—'}</td>
       <td><span class="badge badge-gray">${t.role}</span></td>
       <td>${t.is_approved_driver ? '<span class="badge badge-green">✓ Chauffeur</span>' : '—'}</td>
@@ -4198,6 +4204,7 @@ function openAddTenant() {
   document.getElementById('tenant-unit').value = '';
   document.getElementById('tenant-role').value = 'tenant';
   document.getElementById('tenant-driver').checked = false;
+  document.getElementById('tenant-active').checked = true;
   document.getElementById('tenant-balance').value = '0';
   openModal('modal-add-tenant');
 }
@@ -4211,6 +4218,7 @@ function editTenant(id) {
   document.getElementById('tenant-unit').value = t.unit || '';
   document.getElementById('tenant-role').value = t.role;
   document.getElementById('tenant-driver').checked = t.is_approved_driver;
+  document.getElementById('tenant-active').checked = t.is_active !== false;
   document.getElementById('tenant-balance').value = t.virtual_balance || 0;
   openModal('modal-add-tenant');
 }
@@ -4221,10 +4229,11 @@ async function saveTenant() {
   const unit = document.getElementById('tenant-unit').value.trim();
   const role = document.getElementById('tenant-role').value;
   const driver = document.getElementById('tenant-driver').checked;
+  const active = document.getElementById('tenant-active').checked;
   const balance = parseFloat(document.getElementById('tenant-balance').value) || 0;
 
   if (editingId) {
-    const { error } = await sb.from('profiles').update({ full_name: name, unit, role, is_approved_driver: driver, virtual_balance: balance }).eq('id', editingId);
+    const { error } = await sb.from('profiles').update({ full_name: name, unit, role, is_approved_driver: driver, is_active: active, virtual_balance: balance }).eq('id', editingId);
     if (error) { toast('Erreur: ' + error.message, 'error'); return; }
     toast('Locataire mis à jour', 'success');
   } else {
