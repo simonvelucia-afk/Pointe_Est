@@ -1284,6 +1284,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
     <!-- ==================== TENANT: DASHBOARD ==================== -->
     <div id="page-dashboard" class="page">
+      <div id="dashboard-inactive-notice" style="display:none;background:rgba(224,112,96,0.12);border:1px solid rgba(224,112,96,0.35);border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;color:var(--accent3);font-size:0.9rem;">
+        ⚠️ <strong>Compte inactif</strong> — Vous pouvez consulter la plateforme, mais vos réservations sont suspendues. Contactez l'administrateur pour réactiver votre compte.
+      </div>
       <div class="balance-display">
         <div>
           <div class="balance-label" data-pt="Solde disponible">Solde disponible</div>
@@ -3023,7 +3026,7 @@ function showApp() {
   } else if (banner) {
     banner.style.display = 'none';
   }
-  navigateTo(isDemo ? 'spaces' : 'dashboard');
+  navigateTo('dashboard');
 }
 
 function buildNav() {
@@ -3032,8 +3035,7 @@ function buildNav() {
   const role = currentProfile?.role;
 
   let html = '';
-  if (role !== 'demo') {
-    html += `<button class="nav-tab" onclick="navigateTo('dashboard')">${lmT('navDashboard')}</button>`;
+  html += `<button class="nav-tab" onclick="navigateTo('dashboard')">${lmT('navDashboard')}</button>`;
   }
   html += `<button class="nav-tab" onclick="navigateTo('spaces')">${lmT('navSpaces')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('trips')">${lmT('navTrips')}</button>`;
@@ -3114,10 +3116,6 @@ function pageName(page) {
 // INACTIVE GUARD
 // ==========================================
 function checkActive() {
-  if (currentProfile?.is_active === false) {
-    toast('Votre compte est inactif. Contactez l\'administrateur pour effectuer des réservations.', 'error');
-    return false;
-  }
   return true;
 }
 
@@ -3150,74 +3148,75 @@ async function loadDashboard() {
   document.getElementById('balance-amount').textContent = (currentProfile.virtual_balance || 0).toFixed(2);
   document.getElementById('user-unit').textContent = currentProfile.unit || '—';
 
-  // Stats
-  let stats = [];
-  if (!isDemo) {
-    const { data: sRes } = await sb.from('space_reservations')
-      .select('id, status')
-      .eq('tenant_id', currentProfile.id);
-    const { data: tBook } = await sb.from('trip_bookings')
-      .select('id, status')
-      .eq('passenger_id', currentProfile.id);
-    stats = [
-      { label: pt('Réservations d\'espaces'), value: sRes?.length || 0 },
-      { label: pt('Covoiturages'), value: tBook?.length || 0 },
-      { label: pt('Solde'), value: `${(currentProfile.virtual_balance || 0).toFixed(2)} $` },
+  // Statut inactif
+  const notice = document.getElementById('dashboard-inactive-notice');
+  if (notice) notice.style.display = currentProfile.is_active === false ? '' : 'none';
+
+  // Mode démo — données fictives
+  if (isDemo) {
+    document.getElementById('dashboard-stats').innerHTML = [
+      { label: 'Réservations d\'espaces', value: 4 },
+      { label: 'Covoiturages', value: 2 },
+      { label: 'Solde', value: `${(currentProfile.virtual_balance || 0).toFixed(2)} $` },
+    ].map(s => `<div class="stat-card"><div class="stat-label">${s.label}</div><div class="stat-value">${s.value}</div></div>`).join('');
+    const demoRes = [
+      { type: 'Espace', name: 'Salon commun A', date: new Date(Date.now() - 1*86400000).toISOString(), cost: 12.00, status: 'confirmed' },
+      { type: 'Trajet', name: 'Montréal → Québec', date: new Date(Date.now() - 3*86400000).toISOString(), cost: 15.00, status: 'accepted' },
+      { type: 'Espace', name: 'Terrasse', date: new Date(Date.now() - 7*86400000).toISOString(), cost: 8.00, status: 'completed' },
+      { type: 'Espace', name: 'Salle de réunion B', date: new Date(Date.now() - 10*86400000).toISOString(), cost: 6.00, status: 'completed' },
+      { type: 'Trajet', name: 'Montréal → Ottawa', date: new Date(Date.now() - 14*86400000).toISOString(), cost: 20.00, status: 'completed' },
     ];
-    if (currentProfile.is_approved_driver) {
-      const { data: myTrips } = await sb.from('trips').select('id').eq('driver_id', currentProfile.id);
-      stats.push({ label: pt('Trajets publiés'), value: myTrips?.length || 0 });
-    }
+    document.getElementById('my-reservations-list').innerHTML = `<div class="table-container"><table>
+      <thead><tr><th>Type</th><th>Ressource</th><th>Date</th><th>Coût</th><th>Statut</th></tr></thead>
+      <tbody>${demoRes.map(r => `<tr>
+        <td><span class="badge badge-gray">${r.type}</span></td>
+        <td>${r.name}</td>
+        <td>${new Date(r.date).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+        <td>${r.cost.toFixed(2)} $</td>
+        <td><span class="badge ${statusBadge(r.status)}">${statusLabel(r.status)}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+    return;
   }
 
+  // Stats réelles
+  const { data: sRes } = await sb.from('space_reservations').select('id, status').eq('tenant_id', currentProfile.id);
+  const { data: tBook } = await sb.from('trip_bookings').select('id, status').eq('passenger_id', currentProfile.id);
+  const stats = [
+    { label: pt('Réservations d\'espaces'), value: sRes?.length || 0 },
+    { label: pt('Covoiturages'), value: tBook?.length || 0 },
+    { label: pt('Solde'), value: `${(currentProfile.virtual_balance || 0).toFixed(2)} $` },
+  ];
+  if (currentProfile.is_approved_driver) {
+    const { data: myTrips } = await sb.from('trips').select('id').eq('driver_id', currentProfile.id);
+    stats.push({ label: pt('Trajets publiés'), value: myTrips?.length || 0 });
+  }
   document.getElementById('dashboard-stats').innerHTML = stats.map(s => `
-    <div class="stat-card">
-      <div class="stat-label">${s.label}</div>
-      <div class="stat-value">${s.value}</div>
-    </div>
+    <div class="stat-card"><div class="stat-label">${s.label}</div><div class="stat-value">${s.value}</div></div>
   `).join('');
 
-  // Recent reservations
-  if (!isDemo) {
-    const { data: sRes } = await sb.from('space_reservations')
-      .select('*, common_spaces(name)')
-      .eq('tenant_id', currentProfile.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    const { data: tBook } = await sb.from('trip_bookings')
-      .select('*, trips(title, departure_time)')
-      .eq('passenger_id', currentProfile.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
+  // Réservations récentes
+  const { data: sRes2 } = await sb.from('space_reservations').select('*, common_spaces(name)').eq('tenant_id', currentProfile.id).order('created_at', { ascending: false }).limit(5);
+  const { data: tBook2 } = await sb.from('trip_bookings').select('*, trips(title, departure_time)').eq('passenger_id', currentProfile.id).order('created_at', { ascending: false }).limit(5);
+  const combined = [
+    ...(sRes2 || []).map(r => ({ type: pt('Espace'), name: r.common_spaces?.name, date: r.start_time, cost: r.total_cost, status: r.status })),
+    ...(tBook2 || []).map(r => ({ type: pt('Trajet'), name: r.trips?.title, date: r.trips?.departure_time, cost: r.total_cost, status: r.status }))
+  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
 
-    const combined = [
-      ...(sRes || []).map(r => ({
-        type: pt('Espace'), name: r.common_spaces?.name, date: r.start_time, cost: r.total_cost, status: r.status
-      })),
-      ...(tBook || []).map(r => ({
-        type: pt('Trajet'), name: r.trips?.title, date: r.trips?.departure_time, cost: r.total_cost, status: r.status
-      }))
-    ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
-
-    const list = document.getElementById('my-reservations-list');
-    if (!combined.length) {
-      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>${pt('Aucune réservation pour le moment')}</p></div>`;
-    } else {
-      list.innerHTML = `<div class="table-container"><table>
-        <thead><tr><th>${pt('Type')}</th><th>${pt('Ressource')}</th><th>${pt('Date')}</th><th>${pt('Coût')}</th><th>${pt('Statut')}</th></tr></thead>
-        <tbody>${combined.map(r => `
-          <tr>
-            <td><span class="badge badge-gray">${r.type}</span></td>
-            <td>${r.name || '—'}</td>
-            <td>${r.date ? new Date(r.date).toLocaleString(lmLang === 'fr' ? 'fr-CA' : lmLang === 'es' ? 'es-ES' : 'en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
-            <td>${(r.cost || 0).toFixed(2)} $</td>
-            <td><span class="badge ${statusBadge(r.status)}">${statusLabel(r.status)}</span></td>
-          </tr>
-        `).join('')}</tbody>
-      </table></div>`;
-    }
+  const list = document.getElementById('my-reservations-list');
+  if (!combined.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>${pt('Aucune réservation pour le moment')}</p></div>`;
   } else {
-    document.getElementById('my-reservations-list').innerHTML = `<div class="info-box">${pt('En mode démo, les réservations ne sont pas enregistrées à votre compte.')}</div>`;
+    list.innerHTML = `<div class="table-container"><table>
+      <thead><tr><th>${pt('Type')}</th><th>${pt('Ressource')}</th><th>${pt('Date')}</th><th>${pt('Coût')}</th><th>${pt('Statut')}</th></tr></thead>
+      <tbody>${combined.map(r => `<tr>
+        <td><span class="badge badge-gray">${r.type}</span></td>
+        <td>${r.name || '—'}</td>
+        <td>${r.date ? new Date(r.date).toLocaleString(lmLang === 'fr' ? 'fr-CA' : lmLang === 'es' ? 'es-ES' : 'en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
+        <td>${(r.cost || 0).toFixed(2)} $</td>
+        <td><span class="badge ${statusBadge(r.status)}">${statusLabel(r.status)}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
   }
 }
 
