@@ -1342,6 +1342,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <button class="admin-tab" id="requests-tab" onclick="switchTripsTab('requests')" data-pt="Demandes passagers">Demandes passagers</button>
         <button class="admin-tab" onclick="switchTripsTab('mine')" data-pt="Mes trajets">Mes trajets</button>
         <button class="admin-tab" id="driver-tab" style="display:none" onclick="switchTripsTab('driving')" data-pt="En tant que chauffeur">En tant que chauffeur</button>
+        <button class="admin-tab" id="history-tab" style="display:none" onclick="switchTripsTab('history')" data-pt="Historique">🕐 Historique</button>
       </div>
       <div id="trips-grid">
         <div class="loading"><div class="spinner"></div> Chargement…</div>
@@ -2196,6 +2197,36 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 </div>
 
+<!-- Reactivate Trip Modal -->
+<div class="modal-overlay" id="modal-reactivate-trip">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h3>🔄 Réactiver le trajet</h3>
+      <button class="modal-close" onclick="closeModal('modal-reactivate-trip')">×</button>
+    </div>
+    <div class="form-group">
+      <label>Nouvelle date et heure de départ</label>
+      <input type="datetime-local" id="react-departure">
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-top:4px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;font-weight:500;margin-bottom:10px;">
+        <input type="checkbox" id="react-recurring" style="width:auto;margin:0" onchange="document.getElementById('react-recurring-fields').style.display=this.checked?'grid':'none'">
+        🔁 Récurrence hebdomadaire
+      </label>
+      <div id="react-recurring-fields" style="display:none;grid-template-columns:1fr;gap:10px;">
+        <div class="form-group" style="margin:0">
+          <label>Répéter jusqu'au</label>
+          <input type="date" id="react-recur-end">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-reactivate-trip')">Annuler</button>
+      <button class="btn btn-primary" onclick="submitReactivateTrip()">Publier</button>
+    </div>
+  </div>
+</div>
+
 <!-- Space Booking Modal -->
 <div class="modal-overlay" id="modal-book-space">
   <div class="modal">
@@ -2279,6 +2310,29 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="form-group" style="margin-top:12px">
       <label>Description (optionnel)</label>
       <textarea id="trip-desc" rows="2" placeholder="Informations supplémentaires…"></textarea>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-top:12px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;font-weight:500;margin-bottom:10px;">
+        <input type="checkbox" id="trip-recurring" style="width:auto;margin:0" onchange="toggleRecurring()"> 🔁 Récurrence hebdomadaire
+      </label>
+      <div id="trip-recurring-fields" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group" style="margin:0">
+          <label>Répéter chaque</label>
+          <select id="trip-recur-day">
+            <option value="1">Lundi</option>
+            <option value="2">Mardi</option>
+            <option value="3">Mercredi</option>
+            <option value="4">Jeudi</option>
+            <option value="5">Vendredi</option>
+            <option value="6">Samedi</option>
+            <option value="0">Dimanche</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Jusqu'au</label>
+          <input type="date" id="trip-recur-end">
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-create-trip')">Annuler</button>
@@ -3386,6 +3440,7 @@ async function loadTrips() {
   const isDriver = currentProfile?.is_approved_driver;
   document.getElementById('btn-create-trip').style.display = isDriver && !isDemo ? '' : 'none';
   document.getElementById('driver-tab').style.display = isDriver ? '' : 'none';
+  document.getElementById('history-tab').style.display = isDriver ? '' : 'none';
   document.getElementById('requests-tab').style.display = '';
   await renderTripsTab();
 }
@@ -3393,7 +3448,7 @@ async function loadTrips() {
 function switchTripsTab(tab) {
   currentTripsTab = tab;
   document.querySelectorAll('#page-trips .admin-tab').forEach((t, i) => {
-    t.classList.toggle('active', ['available', 'requests', 'mine', 'driving'][i] === tab);
+    t.classList.toggle('active', ['available', 'requests', 'mine', 'driving', 'history'][i] === tab);
   });
   renderTripsTab();
 }
@@ -3424,6 +3479,9 @@ async function renderTripsTab() {
     return;
   } else if (currentTripsTab === 'driving') {
     query = query.eq('driver_id', currentProfile?.id);
+  } else if (currentTripsTab === 'history') {
+    await renderTripHistory();
+    return;
   }
 
   const { data, error } = await query.order('departure_time').limit(50);
@@ -3511,6 +3569,115 @@ function renderDriverTrips(trips) {
       </div>
     </div>`;
   }).join('')}</div>`;
+}
+
+function toggleRecurring() {
+  const checked = document.getElementById('trip-recurring').checked;
+  const fields = document.getElementById('trip-recurring-fields');
+  if (fields) fields.style.display = checked ? 'grid' : 'none';
+}
+
+async function renderTripHistory() {
+  const grid = document.getElementById('trips-grid');
+  grid.innerHTML = `<div class="loading"><div class="spinner"></div> Chargement…</div>`;
+  const { data, error } = await sb.from('trips_with_details').select('*')
+    .eq('driver_id', currentProfile.id)
+    .in('status', ['cancelled', 'completed'])
+    .order('departure_time', { ascending: false })
+    .limit(50);
+  if (error || !data?.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🕐</div><p>Aucun trajet dans l\'historique</p></div>';
+    return;
+  }
+  tripsCache = data;
+  grid.innerHTML = `<div class="cards-grid">${data.map(t => {
+    const depTime = new Date(t.departure_time);
+    return `<div class="card" style="opacity:0.8">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${escHtml(t.title)}</div>
+          <div class="card-subtitle">${depTime.toLocaleString('fr-CA', { dateStyle: 'full', timeStyle: 'short' })}</div>
+        </div>
+        <span class="badge ${statusBadge(t.status)}">${statusLabel(t.status)}</span>
+      </div>
+      <div class="trip-route">
+        <div class="route-line"></div>
+        <div class="route-point"><div class="point-name">📍 ${escHtml(t.departure_point)}</div></div>
+        <div class="route-point"><div class="point-name">🏁 ${escHtml(t.destination)}</div></div>
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">🚗 ${escHtml(t.vehicle_model || '—')}</span>
+        <span class="meta-item">👥 ${t.available_seats} places</span>
+        <span class="meta-item">📅 ${depTime.toLocaleDateString('fr-CA', { weekday: 'long' })}</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-success btn-sm" onclick="openReactivateTrip('${t.id}')">🔄 Réactiver</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+let reactivatingTripId = null;
+function openReactivateTrip(tripId) {
+  reactivatingTripId = tripId;
+  const trip = tripsCache.find(t => t.id === tripId) || {};
+  // Set tomorrow as default
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(8, 0, 0, 0);
+  const iso = tomorrow.toISOString().slice(0, 16);
+  document.getElementById('react-departure').value = iso;
+  document.getElementById('react-recurring').checked = false;
+  document.getElementById('react-recurring-fields').style.display = 'none';
+  document.getElementById('react-recur-end').value = '';
+  openModal('modal-reactivate-trip');
+}
+
+async function submitReactivateTrip() {
+  const tripId = reactivatingTripId;
+  const newDeparture = document.getElementById('react-departure').value;
+  const isRecurring = document.getElementById('react-recurring').checked;
+  const recurEnd = document.getElementById('react-recur-end').value;
+
+  if (!newDeparture) { toast('Choisissez une date de départ', 'error'); return; }
+  if (isRecurring && !recurEnd) { toast('Choisissez une date de fin pour la récurrence', 'error'); return; }
+
+  // Fetch original trip
+  const { data: orig } = await sb.from('trips').select('*').eq('id', tripId).single();
+  if (!orig) { toast('Trajet introuvable', 'error'); return; }
+
+  const dates = [new Date(newDeparture)];
+  if (isRecurring && recurEnd) {
+    let cur = new Date(newDeparture);
+    const end = new Date(recurEnd);
+    while (true) {
+      cur = new Date(cur.getTime() + 7 * 24 * 60 * 60 * 1000);
+      if (cur > end) break;
+      dates.push(new Date(cur));
+    }
+  }
+
+  let created = 0;
+  for (const date of dates) {
+    const { error } = await sb.from('trips').insert({
+      vehicle_id: orig.vehicle_id,
+      driver_id: orig.driver_id,
+      title: orig.title,
+      departure_point: orig.departure_point,
+      destination: orig.destination,
+      departure_time: date.toISOString(),
+      estimated_distance_km: orig.estimated_distance_km,
+      available_seats: orig.available_seats,
+      cargo_available_pct: orig.cargo_available_pct,
+      description: orig.description,
+      status: 'published'
+    });
+    if (!error) created++;
+  }
+
+  toast(`${created} trajet(s) publié(s) !`, 'success');
+  closeModal('modal-reactivate-trip');
+  switchTripsTab('driving');
 }
 
 function renderTripBookings(bookings) {
@@ -3761,45 +3928,62 @@ async function submitCreateTrip() {
   const cargo = parseInt(document.getElementById('trip-cargo').value) || 100;
   const desc = document.getElementById('trip-desc').value.trim();
 
+  const isRecurring = document.getElementById('trip-recurring')?.checked;
+  const recurEnd = document.getElementById('trip-recur-end')?.value;
+
   if (!title || !vehicleId || !from || !to || !departure) {
     toast('Veuillez remplir les champs obligatoires', 'error'); return;
   }
+  if (isRecurring && !recurEnd) {
+    toast('Veuillez choisir une date de fin pour la récurrence', 'error'); return;
+  }
 
-  const { data: trip, error } = await sb.from('trips').insert({
-    vehicle_id: vehicleId,
-    driver_id: currentProfile.id,
-    title,
-    departure_point: from,
-    destination: to,
-    departure_time: departure,
-    estimated_distance_km: distance,
-    available_seats: seats,
-    cargo_available_pct: cargo,
-    description: desc || null,
-    status: 'published'
-  }).select().single();
-
-  if (error) { toast('Erreur: ' + error.message, 'error'); return; }
-
-  // Save stops
-  for (let i = 1; i <= stopsCount; i++) {
-    const loc = document.getElementById(`stop-loc-${i}`)?.value;
-    const time = document.getElementById(`stop-time-${i}`)?.value;
-    if (loc) {
-      await sb.from('trip_stops').insert({ trip_id: trip.id, stop_order: i, location: loc, estimated_arrival: time || null });
+  // Build list of dates
+  const dates = [new Date(departure)];
+  if (isRecurring && recurEnd) {
+    let cur = new Date(departure);
+    const end = new Date(recurEnd);
+    while (true) {
+      cur = new Date(cur.getTime() + 7 * 24 * 60 * 60 * 1000);
+      if (cur > end) break;
+      dates.push(new Date(cur));
     }
   }
 
-  // Save dependents
-  for (let i = 1; i <= dependentsCount; i++) {
-    const name = document.getElementById(`dep-name-${i}`)?.value;
-    const seat = document.getElementById(`dep-seat-${i}`)?.value;
-    if (name) {
-      await sb.from('driver_dependent_seats').insert({ trip_id: trip.id, driver_id: currentProfile.id, dependent_name: name, seat_number: seat || null });
+  let lastTrip = null;
+  for (const date of dates) {
+    const { data: trip, error } = await sb.from('trips').insert({
+      vehicle_id: vehicleId,
+      driver_id: currentProfile.id,
+      title,
+      departure_point: from,
+      destination: to,
+      departure_time: date.toISOString(),
+      estimated_distance_km: distance,
+      available_seats: seats,
+      cargo_available_pct: cargo,
+      description: desc || null,
+      status: 'published'
+    }).select().single();
+    if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+    if (!lastTrip) lastTrip = trip;
+  }
+
+  // Save stops and dependents on first trip only
+  if (lastTrip) {
+    for (let i = 1; i <= stopsCount; i++) {
+      const loc = document.getElementById(`stop-loc-${i}`)?.value;
+      const time = document.getElementById(`stop-time-${i}`)?.value;
+      if (loc) await sb.from('trip_stops').insert({ trip_id: lastTrip.id, stop_order: i, location: loc, estimated_arrival: time || null });
+    }
+    for (let i = 1; i <= dependentsCount; i++) {
+      const name = document.getElementById(`dep-name-${i}`)?.value;
+      const seat = document.getElementById(`dep-seat-${i}`)?.value;
+      if (name) await sb.from('driver_dependent_seats').insert({ trip_id: lastTrip.id, driver_id: currentProfile.id, dependent_name: name, seat_number: seat || null });
     }
   }
 
-  toast('Trajet publié !', 'success');
+  toast(dates.length > 1 ? `${dates.length} trajets publiés !` : 'Trajet publié !', 'success');
   closeModal('modal-create-trip');
   loadTrips();
 }
