@@ -1434,78 +1434,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
     </div>
 
-    <!-- Modal ajout/édition dépendant -->
-    <div class="modal-overlay" id="modal-dependent">
-      <div class="modal" style="max-width:480px">
-        <div class="modal-header">
-          <h3 class="modal-title" id="dependent-modal-title">Ajouter un dépendant</h3>
-          <button class="btn-icon btn-secondary" onclick="closeModal('modal-dependent')">✕</button>
-        </div>
-        <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
-          <input type="hidden" id="dep-editing-id">
-          <div class="form-group">
-            <label>Prénom / Nom</label>
-            <input type="text" id="dep-name" placeholder="Marie Tremblay" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label>Date de naissance</label>
-            <input type="date" id="dep-birthdate">
-          </div>
-          <div class="form-group">
-            <label>PIN d'accès (4 chiffres)</label>
-            <input type="text" id="dep-pin" maxlength="4" placeholder="••••" pattern="[0-9]{4}" autocomplete="off" inputmode="numeric">
-            <div style="font-size:0.78rem;color:var(--text3);margin-top:4px;">Le dépendant utilisera ce PIN pour s'identifier aux kiosques</div>
-          </div>
-          <div class="form-group">
-            <label>Services autorisés</label>
-            <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
-              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;">
-                <input type="checkbox" id="dep-allow-spaces" style="width:auto;margin:0;"> Réservation d'espaces
-              </label>
-              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;">
-                <input type="checkbox" id="dep-allow-trips" style="width:auto;margin:0;"> Auto-partage
-              </label>
-              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;">
-                <input type="checkbox" id="dep-allow-lunch" style="width:auto;margin:0;"> 🍱 Machine Lunch
-              </label>
-            </div>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:4px;">
-            <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-dependent')">Annuler</button>
-            <button class="btn btn-primary" style="flex:1" onclick="saveDependent()">Sauvegarder</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal transfert de crédits -->
-    <div class="modal-overlay" id="modal-transfer">
-      <div class="modal" style="max-width:400px">
-        <div class="modal-header">
-          <h3 class="modal-title">Transfert de crédits</h3>
-          <button class="btn-icon btn-secondary" onclick="closeModal('modal-transfer')">✕</button>
-        </div>
-        <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
-          <input type="hidden" id="transfer-dep-id">
-          <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;font-size:0.9rem;">
-            Vers : <strong id="transfer-dep-name" style="color:var(--accent)"></strong>
-          </div>
-          <div style="font-size:0.85rem;color:var(--text2);">
-            Votre solde : <span id="transfer-parent-balance" style="color:var(--accent2);font-weight:600"></span> $ CAD
-          </div>
-          <div style="font-size:0.85rem;color:var(--text2);" id="transfer-dep-balance-info"></div>
-          <div class="form-group">
-            <label>Montant à transférer ($ CAD)</label>
-            <input type="number" id="transfer-amount" min="0.01" step="0.01" placeholder="0.00">
-          </div>
-          <div style="display:flex;gap:10px;">
-            <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-transfer')">Annuler</button>
-            <button class="btn btn-primary" style="flex:1" onclick="confirmTransfer()">Transférer</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- ==================== ADMIN ==================== -->
     <div id="page-admin" class="page">
       <div class="section-header">
@@ -2178,6 +2106,79 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div style="display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--border);">
       <button onclick="lmClosePurchaseModal()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:8px 18px;border-radius:4px;cursor:pointer;font-size:13px;">Annuler</button>
       <button id="lm-confirm-btn" onclick="lmConfirmPurchase()" disabled style="background:var(--accent);color:#000;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;opacity:.4;">Confirmer ✓</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal ajout/édition dépendant -->
+<div class="modal-overlay" id="modal-dependent">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 class="modal-title" id="dependent-modal-title">Ajouter un dépendant</h3>
+      <button class="btn-icon btn-secondary" onclick="closeModal('modal-dependent')">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <input type="hidden" id="dep-editing-id">
+      <div class="form-group">
+        <label>Prénom / Nom</label>
+        <input type="text" id="dep-name" placeholder="Marie Tremblay" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Date de naissance</label>
+        <input type="date" id="dep-birthdate">
+      </div>
+      <div class="form-group">
+        <label>PIN d'accès (4 chiffres)</label>
+        <input type="text" id="dep-pin" maxlength="4" placeholder="••••" pattern="[0-9]{4}" autocomplete="off" inputmode="numeric">
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:4px;">Le dépendant utilisera ce PIN pour s'identifier aux kiosques</div>
+      </div>
+      <div class="form-group">
+        <label>Services autorisés</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;">
+            <input type="checkbox" id="dep-allow-spaces" style="width:auto;margin:0;"> Réservation d'espaces
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;">
+            <input type="checkbox" id="dep-allow-trips" style="width:auto;margin:0;"> Auto-partage
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;font-size:0.9rem;">
+            <input type="checkbox" id="dep-allow-lunch" style="width:auto;margin:0;"> 🍱 Machine Lunch
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-dependent')">Annuler</button>
+        <button class="btn btn-primary" style="flex:1" onclick="saveDependent()">Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal transfert de crédits -->
+<div class="modal-overlay" id="modal-transfer">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3 class="modal-title">Transfert de crédits</h3>
+      <button class="btn-icon btn-secondary" onclick="closeModal('modal-transfer')">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <input type="hidden" id="transfer-dep-id">
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;font-size:0.9rem;">
+        Vers : <strong id="transfer-dep-name" style="color:var(--accent)"></strong>
+      </div>
+      <div style="font-size:0.85rem;color:var(--text2);">
+        Votre solde : <span id="transfer-parent-balance" style="color:var(--accent2);font-weight:600"></span> $ CAD
+      </div>
+      <div style="font-size:0.85rem;color:var(--text2);" id="transfer-dep-balance-info"></div>
+      <div class="form-group">
+        <label>Montant à transférer ($ CAD)</label>
+        <input type="number" id="transfer-amount" min="0.01" step="0.01" placeholder="0.00">
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-transfer')">Annuler</button>
+        <button class="btn btn-primary" style="flex:1" onclick="confirmTransfer()">Transférer</button>
+      </div>
     </div>
   </div>
 </div>
