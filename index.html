@@ -837,6 +837,77 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   border-top: 1px solid var(--border);
   font-size: 0.85rem;
 }
+
+/* ===== BABILLARD ===== */
+.bb-post {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  transition: border-color var(--transition);
+}
+.bb-post:hover { border-color: var(--surface3); }
+.bb-post-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.bb-post-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bb-author-avatar {
+  width: 34px; height: 34px;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.bb-author-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.bb-post-date {
+  font-size: 0.78rem;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.bb-post-body {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bb-compose {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+.bb-compose textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.bb-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text3);
+  font-size: 0.95rem;
+}
+.bb-empty .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
 </style>
 
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
@@ -1373,6 +1444,30 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
   <!-- PAGES -->
   <main id="main">
+
+    <!-- ==================== TENANT: BABILLARD ==================== -->
+    <div id="page-babillard" class="page">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>📌 Babillard</h2>
+          <p style="color:var(--text2);font-size:0.9rem">Messages et annonces de la communauté</p>
+        </div>
+      </div>
+
+      <!-- Composer -->
+      <div class="bb-compose" id="bb-compose-box">
+        <div style="font-size:0.82rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;font-weight:500;margin-bottom:10px;">Nouveau message</div>
+        <textarea id="bb-new-message" placeholder="Partagez une annonce, une question ou un avis avec vos voisins…" autocomplete="off"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button class="btn btn-primary btn-sm" onclick="bbPostMessage()">Publier</button>
+        </div>
+      </div>
+
+      <!-- Feed -->
+      <div id="bb-feed">
+        <div class="bb-empty"><div class="empty-icon">📋</div>Chargement…</div>
+      </div>
+    </div>
 
     <!-- ==================== TENANT: DASHBOARD ==================== -->
     <div id="page-dashboard" class="page">
@@ -3237,6 +3332,7 @@ function buildNav() {
   const role = currentProfile?.role;
 
   let html = '';
+  html += `<button class="nav-tab" onclick="navigateTo('babillard')">${lmT('navBabillard')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('dashboard')">${lmT('navDashboard')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('spaces')">${lmT('navSpaces')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('trips')">${lmT('navTrips')}</button>`;
@@ -3252,6 +3348,7 @@ function buildNav() {
   const drawer = document.getElementById('mobile-drawer');
   if (drawer) {
     const pages = [
+      { key: 'babillard',    label: '📌 ' + lmT('navBabillard') },
       { key: 'dashboard', label: '🏠 ' + lmT('navDashboard') },
       { key: 'spaces',    label: '🏢 ' + lmT('navSpaces') },
       { key: 'trips',     label: '🚗 ' + lmT('navTrips') },
@@ -3318,6 +3415,7 @@ function navigateTo(page) {
   // Load page data
   switch(page) {
     case 'dashboard': loadDashboard(); break;
+    case 'babillard': loadBabillard(); break;
     case 'spaces': loadSpaces(); break;
     case 'trips': loadTrips(); break;
     case 'transactions': loadTransactions(); break;
@@ -3328,7 +3426,7 @@ function navigateTo(page) {
 }
 
 function pageName(page) {
-  const map = { dashboard: 'tableau', spaces: 'espace', trips: 'auto', transactions: 'transaction', profile: 'profil', admin: 'admin', lunch: 'lunch' };
+  const map = { dashboard: 'tableau', babillard: 'babillard', spaces: 'espace', trips: 'auto', transactions: 'transaction', profile: 'profil', admin: 'admin', lunch: 'lunch' };
   return map[page] || page;
 }
 
@@ -5095,6 +5193,7 @@ const LANGS = {
     code:'fr', flag:'🇫🇷', label:'FR',
     // Nav tabs
     navDashboard: 'Tableau de bord',
+    navBabillard: '📌 Babillard',
     navSpaces: 'Espaces',
     navTrips: 'Auto-partage',
     navLunch: '🍱 Lunch',
@@ -5186,6 +5285,7 @@ const LANGS = {
     code: "en', flag: '🇬🇧', label: 'EN",
     // Nav tabs
     navDashboard: 'Dashboard',
+    navBabillard: '📌 Bulletin board',
     navSpaces: 'Spaces',
     navTrips: 'Carpooling',
     navLunch: '🍱 Lunch',
@@ -5264,6 +5364,7 @@ const LANGS = {
     code: "es', flag: '🇪🇸', label: 'ES",
     // Nav tabs
     navDashboard: 'Tablero',
+    navBabillard: '📌 Tablón',
     navSpaces: 'Espacios',
     navTrips: 'Coche compartido',
     navLunch: '🍱 Comida',
@@ -7088,6 +7189,101 @@ window.addEventListener('pagehide', (e) => {
     });
   }
 });
+
+// ==========================================
+// BABILLARD
+// ==========================================
+async function loadBabillard() {
+  const feed = document.getElementById('bb-feed');
+  if (!feed) return;
+  feed.innerHTML = '<div class="bb-empty"><div class="empty-icon">📋</div>Chargement…</div>';
+
+  // Masquer le composeur en mode démo
+  const compose = document.getElementById('bb-compose-box');
+  if (compose) compose.style.display = isDemo ? 'none' : '';
+
+  if (isDemo) {
+    const demoData = [
+      { id: 'demo-1', content: "Rappel : la collecte des ordures est le mercredi matin. Merci de sortir vos bacs la veille avant 23h.", created_at: new Date(Date.now() - 1*86400000).toISOString(), profiles: { full_name: 'Marie Côté' }, user_id: 'other' },
+      { id: 'demo-2', content: "Est-ce que quelqu'un aurait un vélo à prêter pour ce week-end ? Je dois me rendre à la piste cyclable.", created_at: new Date(Date.now() - 3*86400000).toISOString(), profiles: { full_name: 'Julien Fortin' }, user_id: 'other' },
+      { id: 'demo-3', content: "Le jardin commun est disponible samedi à partir de 10h pour une séance de désherbage collectif. Venez nombreux !", created_at: new Date(Date.now() - 5*86400000).toISOString(), profiles: { full_name: 'Alex Tremblay' }, user_id: null },
+    ];
+    feed.innerHTML = demoData.map(p => bbRenderPost(p, false, false)).join('');
+    return;
+  }
+
+  const isAdmin = currentProfile?.role === 'admin' || currentProfile?.role === 'principal_admin';
+  const { data, error } = await sb
+    .from('bulletin_board')
+    .select('*, profiles(full_name)')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    feed.innerHTML = '<div class="bb-empty"><div class="empty-icon">⚠️</div>Erreur de chargement. Vérifiez que la table <code>bulletin_board</code> existe dans Supabase.</div>';
+    console.error('bulletin_board load error:', error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    feed.innerHTML = '<div class="bb-empty"><div class="empty-icon">📌</div>Aucun message pour le moment. Soyez le premier à publier !</div>';
+    return;
+  }
+
+  feed.innerHTML = data.map(p => {
+    const isOwner = currentProfile?.id === p.user_id;
+    return bbRenderPost(p, isOwner, isAdmin);
+  }).join('');
+}
+
+function bbRenderPost(p, isOwner, isAdmin) {
+  const name = p.profiles?.full_name || 'Locataire';
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+  const date = new Date(p.created_at);
+  const dateStr = date.toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' })
+    + ' à ' + date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+  const canDelete = isOwner || isAdmin;
+
+  return `
+  <div class="bb-post" id="bb-post-${p.id}">
+    <div class="bb-post-header">
+      <div class="bb-post-meta">
+        <div class="bb-author-avatar">${initials}</div>
+        <div>
+          <div class="bb-author-name">${escHtml(name)}</div>
+          <div class="bb-post-date">Publié le ${dateStr}</div>
+        </div>
+      </div>
+      ${canDelete ? `<button class="btn btn-danger btn-sm btn-icon" title="Supprimer" onclick="bbDeletePost('${p.id}')">✕</button>` : ''}
+    </div>
+    <div class="bb-post-body">${escHtml(p.content)}</div>
+  </div>`;
+}
+
+async function bbPostMessage() {
+  if (isDemo) { toast('Indisponible en mode démo', 'info'); return; }
+  const ta = document.getElementById('bb-new-message');
+  const content = ta?.value?.trim();
+  if (!content) { toast('Le message ne peut pas être vide.', 'error'); return; }
+  if (content.length > 2000) { toast('Message trop long (max 2000 caractères).', 'error'); return; }
+
+  const { error } = await sb.from('bulletin_board').insert({ content, user_id: currentProfile.id });
+  if (error) { toast('Erreur lors de la publication : ' + error.message, 'error'); return; }
+  ta.value = '';
+  toast('Message publié !', 'success');
+  loadBabillard();
+}
+
+async function bbDeletePost(id) {
+  if (!confirm('Supprimer ce message ?')) return;
+  const { error } = await sb.from('bulletin_board').delete().eq('id', id);
+  if (error) { toast('Erreur : ' + error.message, 'error'); return; }
+  document.getElementById(`bb-post-${id}`)?.remove();
+  const feed = document.getElementById('bb-feed');
+  if (feed && !feed.querySelector('.bb-post')) {
+    feed.innerHTML = '<div class="bb-empty"><div class="empty-icon">📌</div>Aucun message pour le moment. Soyez le premier à publier !</div>';
+  }
+}
 
 </script>
 
