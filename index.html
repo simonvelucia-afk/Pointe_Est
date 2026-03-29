@@ -2873,6 +2873,54 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentProfile = null;
 let isDemo = false;
+
+// ===== ANONYMISATION MODE DÉMO =====
+// Génère un pseudonyme stable et déterministe à partir d'une chaîne (id ou nom)
+function anonName(seed) {
+  if (!isDemo) return null; // non-demo : ne pas utiliser
+  const firstNames = ['Camille','Léo','Sofia','Julien','Emma','Nathan','Chloé','Théo','Inès','Hugo','Zoé','Axel','Lucie','Maxime','Alice','Raphaël','Clara','Louis','Manon','Tom'];
+  const lastNames  = ['Martin','Bernard','Robert','Durand','Petit','Moreau','Laurent','Simon','Lefebvre','Leroy','Roux','David','Bertrand','Morel','Fournier','Girard','Bonnet','Dupont','Lambert','Fontaine'];
+  let h = 0;
+  const s = String(seed || '');
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  h = Math.abs(h);
+  return firstNames[h % firstNames.length] + ' ' + lastNames[Math.floor(h / firstNames.length) % lastNames.length];
+}
+function anonUnit(seed) {
+  if (!isDemo) return null;
+  const letters = ['A','B','C','D'];
+  let h = 0;
+  const s = String(seed || '') + 'unit';
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  h = Math.abs(h);
+  return letters[h % letters.length] + '-' + ((h % 9) + 1) + '0' + ((Math.floor(h/9) % 9) + 1);
+}
+function anonEmail(seed) {
+  if (!isDemo) return null;
+  const name = anonName(seed).toLowerCase().replace(' ', '.');
+  return name + '@exemple.com';
+}
+function anonPhone() {
+  if (!isDemo) return null;
+  return '+1 514 555-0000';
+}
+// Applique l'anonymisation sur un objet profile (non-destructif, retourne une copie)
+function anonProfile(p) {
+  if (!isDemo || !p) return p;
+  const seed = p.id || p.email || p.full_name || '';
+  return {
+    ...p,
+    full_name: anonName(seed),
+    email: anonEmail(seed),
+    phone: anonPhone(),
+    unit: p.unit ? anonUnit(seed) : p.unit
+  };
+}
+// Applique l'anonymisation sur un tableau de profiles
+function anonProfiles(arr) {
+  if (!isDemo || !arr) return arr;
+  return arr.map(p => anonProfile(p));
+}
 let authMode = 'login'; // 'login' | 'register'
 let editingId = null; // for modals in edit mode
 
@@ -3386,8 +3434,8 @@ function buildNav() {
   // Dropdown user info
   const ddName = document.getElementById('dropdown-name');
   const ddEmail = document.getElementById('dropdown-email');
-  if (ddName) ddName.textContent = currentProfile?.full_name || 'Utilisateur';
-  if (ddEmail) ddEmail.textContent = currentProfile?.email || '';
+  if (ddName) ddName.textContent = (isDemo ? anonName(currentProfile?.id) : currentProfile?.full_name) || 'Utilisateur';
+  if (ddEmail) ddEmail.textContent = isDemo ? '••••@exemple.com' : (currentProfile?.email || '');
 }
 
 function navigateTo(page) {
@@ -3475,7 +3523,7 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 async function loadDashboard() {
   if (!currentProfile) return;
   document.getElementById('balance-amount').textContent = (currentProfile.virtual_balance || 0).toFixed(2);
-  document.getElementById('user-unit').textContent = currentProfile.unit || '—';
+  document.getElementById('user-unit').textContent = isDemo ? (currentProfile.unit ? anonUnit(currentProfile.id) : '—') : (currentProfile.unit || '—');
 
   // Statut inactif
   const notice = document.getElementById('dashboard-inactive-notice');
@@ -3786,7 +3834,7 @@ function renderAvailableTrips(trips) {
       <div class="card-header">
         <div>
           <div class="card-title">${escHtml(t.title)}</div>
-          <div class="card-subtitle">Chauffeur: ${escHtml(t.driver_name)} · Unité ${t.driver_unit || '?'}</div>
+          <div class="card-subtitle">Chauffeur: ${escHtml(isDemo ? anonName(t.driver_id) : t.driver_name)} · Unité ${isDemo ? (t.driver_unit ? anonUnit(t.driver_id) : '?') : (t.driver_unit || '?')}</div>
         </div>
         <span class="badge ${seatsLeft > 0 ? 'badge-green' : 'badge-red'}">${seatsLeft > 0 ? seatsLeft + ' place(s)' : 'Complet'}</span>
       </div>
@@ -4092,8 +4140,8 @@ async function openTripDetail(tripId) {
       const passengerName = isDriverCargo
         ? `<span style="color:var(--accent)">📦 Cargo chauffeur</span> — ${b.notes || ''}`
         : b.dependents?.name
-          ? `${b.dependents.name} <span style="font-size:0.78rem;color:var(--accent2)">(dépendant de ${b.profiles?.full_name})</span>`
-          : `${b.profiles?.full_name} (Unité ${b.profiles?.unit})`;
+          ? `${isDemo ? anonName(b.dependents.name) : b.dependents.name} <span style="font-size:0.78rem;color:var(--accent2)">(dépendant de ${isDemo ? anonName(b.profiles?.id || b.profiles?.full_name) : b.profiles?.full_name})</span>`
+          : `${isDemo ? anonName(b.profiles?.id || b.profiles?.full_name) : b.profiles?.full_name} (Unité ${isDemo ? (b.profiles?.unit ? anonUnit(b.profiles?.id || b.profiles?.full_name) : '?') : (b.profiles?.unit || '?')})`;
       const details = isDriverCargo
         ? `${b.cargo_pct_requested}% cargo`
         : `${b.pickup_location} → ${b.dropoff_location} — ${b.seats_requested} place(s)${b.cargo_pct_requested ? ` · ${b.cargo_pct_requested}% cargo` : ''}`;
@@ -4396,7 +4444,7 @@ async function renderPassengerRequests() {
       <div class="card-header">
         <div>
           <div class="card-title">${escHtml(r.departure_point)} → ${escHtml(r.destination)}</div>
-          <div class="card-subtitle">${r.requester_name ? escHtml(r.requester_name) : 'Anonyme'}</div>
+          <div class="card-subtitle">${r.requester_name ? escHtml(isDemo ? anonName(r.requester_name) : r.requester_name) : 'Anonyme'}</div>
         </div>
         <span class="badge badge-yellow">Ouvert</span>
       </div>
@@ -4579,10 +4627,10 @@ function txLabel(type, description) {
 // PROFIL & DÉPENDANTS
 // ==========================================
 async function loadProfilePage() {
-  document.getElementById('prof-name').value = currentProfile?.full_name || '';
-  document.getElementById('prof-phone').value = currentProfile?.phone || '';
-  document.getElementById('prof-email').value = currentProfile?.email || '';
-  document.getElementById('prof-unit').value = currentProfile?.unit || '';
+  document.getElementById('prof-name').value = isDemo ? (anonName(currentProfile?.id) || '') : (currentProfile?.full_name || '');
+  document.getElementById('prof-phone').value = isDemo ? '+1 514 555-0000' : (currentProfile?.phone || '');
+  document.getElementById('prof-email').value = isDemo ? '••••@exemple.com' : (currentProfile?.email || '');
+  document.getElementById('prof-unit').value = isDemo ? (currentProfile?.unit ? anonUnit(currentProfile?.id) : '') : (currentProfile?.unit || '');
   document.getElementById('prof-notes').value = currentProfile?.notes || '';
   document.getElementById('prof-balance-display').textContent = (currentProfile?.virtual_balance || 0).toFixed(2);
   // Read-only in demo
@@ -4774,18 +4822,21 @@ async function adminTab(tab) {
 async function loadTenants() {
   const { data } = await sb.from('profiles').select('*').neq('role', 'demo').order('full_name');
   tenantsCache = data || [];
-  document.getElementById('tenants-tbody').innerHTML = tenantsCache.map(t => `
+  document.getElementById('tenants-tbody').innerHTML = tenantsCache.map(t => {
+    const displayName = isDemo ? anonName(t.id) : escHtml(t.full_name);
+    const displayUnit = isDemo ? (t.unit ? anonUnit(t.id) : '—') : (t.unit || '—');
+    return `
     <tr style="${t.is_active === false ? 'opacity:0.5' : ''}">
-      <td>${escHtml(t.full_name)}${t.is_active === false ? ' <span class="badge badge-gray" style="font-size:0.7rem;margin-left:4px">Inactif</span>' : ''}</td>
-      <td>${t.unit || '—'}</td>
+      <td>${displayName}${t.is_active === false ? ' <span class="badge badge-gray" style="font-size:0.7rem;margin-left:4px">Inactif</span>' : ''}</td>
+      <td>${displayUnit}</td>
       <td><span class="badge badge-gray">${t.role}</span></td>
       <td>${t.is_approved_driver ? '<span class="badge badge-green">✓ Chauffeur</span>' : '—'}</td>
       <td>${(t.virtual_balance || 0).toFixed(2)} $</td>
       <td class="td-actions">
         <button class="btn btn-secondary btn-sm" onclick="editTenant('${t.id}')">Modifier</button>
       </td>
-    </tr>
-  `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">Aucun locataire</td></tr>';
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">Aucun locataire</td></tr>';
 }
 
 function openAddTenant() {
@@ -5004,22 +5055,22 @@ async function toggleVehicle(id, val) {
 async function loadAdminPayments() {
   const { data: tenants } = await sb.from('profiles').select('id, full_name, unit').neq('role', 'demo').order('full_name');
   document.getElementById('payment-tenant').innerHTML = (tenants || []).map(t =>
-    `<option value="${t.id}">${t.full_name} (${t.unit || 'sans unité'})</option>`
+    `<option value="${t.id}">${isDemo ? anonName(t.id) : t.full_name} (${isDemo ? (t.unit ? anonUnit(t.id) : 'sans unité') : (t.unit || 'sans unité')})</option>`
   ).join('');
 
   const { data: payments } = await sb.from('real_payments')
-    .select('*, profiles!real_payments_tenant_id_fkey(full_name), recorded_by_profile:profiles!real_payments_recorded_by_fkey(full_name)')
+    .select('*, profiles!real_payments_tenant_id_fkey(id, full_name), recorded_by_profile:profiles!real_payments_recorded_by_fkey(id, full_name)')
     .order('created_at', { ascending: false })
     .limit(50);
 
   document.getElementById('payments-tbody').innerHTML = (payments || []).map(p => `
     <tr>
       <td>${new Date(p.created_at).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' })}</td>
-      <td>${p.profiles?.full_name || '—'}</td>
+      <td>${isDemo ? anonName(p.profiles?.id || p.profiles?.full_name) : (p.profiles?.full_name || '—')}</td>
       <td>$ ${p.amount_real.toFixed(2)}</td>
       <td>${p.amount_virtual.toFixed(2)}</td>
       <td>${p.payment_method || '—'}</td>
-      <td>${p.recorded_by_profile?.full_name || '—'}</td>
+      <td>${isDemo ? anonName(p.recorded_by_profile?.id || p.recorded_by_profile?.full_name) : (p.recorded_by_profile?.full_name || '—')}</td>
     </tr>
   `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">Aucun paiement enregistré</td></tr>';
 }
@@ -5085,13 +5136,13 @@ async function saveSettings() {
 // --- Logs ---
 async function loadLogs() {
   const { data } = await sb.from('reservation_requests')
-    .select('*, profiles(full_name)')
+    .select('*, profiles(id, full_name)')
     .order('created_at', { ascending: false })
     .limit(100);
   document.getElementById('logs-tbody').innerHTML = (data || []).map(l => `
     <tr>
       <td style="white-space:nowrap">${new Date(l.created_at).toLocaleString('fr-CA', { dateStyle: 'medium', timeStyle: 'short' })}</td>
-      <td>${l.profiles?.full_name || '—'}</td>
+      <td>${isDemo ? anonName(l.profiles?.id || l.profiles?.full_name) : (l.profiles?.full_name || '—')}</td>
       <td><span class="badge badge-gray">${l.resource_type}</span></td>
       <td>${l.action}</td>
       <td>${l.is_demo ? '<span class="badge badge-yellow">Démo</span>' : '—'}</td>
@@ -7050,7 +7101,7 @@ async function lmStartPurchase(id) {
     lmTenantsCache.forEach(t => {
       const opt = document.createElement('option');
       opt.value = t.id;
-      opt.textContent = t.full_name + (t.unit ? ' — ' + t.unit : '');
+      opt.textContent = (isDemo ? anonName(t.id) : t.full_name) + (t.unit ? ' — ' + (isDemo ? anonUnit(t.id) : t.unit) : '');
       opt.dataset.balance = t.virtual_balance || 0;
       opt.dataset.kind = 'tenant';
       sel.appendChild(opt);
@@ -7294,7 +7345,8 @@ async function loadBabillard() {
 }
 
 function bbRenderPost(p, isOwner, isAdmin) {
-  const name = p.profiles?.full_name || pt('bbAuthor');
+  const rawName = p.profiles?.full_name || pt('bbAuthor');
+  const name = (isDemo && p.profiles?.full_name) ? anonName(p.profiles?.id || p.profiles?.full_name) : rawName;
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
   const date = new Date(p.created_at);
   const locale = lmLang === 'fr' ? 'fr-CA' : lmLang === 'es' ? 'es-ES' : 'en-CA';
