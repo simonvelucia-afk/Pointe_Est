@@ -38,6 +38,7 @@ gtag('config', 'G-EWP5ER8KFJ', {
 });
 
 function trackFeature(category, action, details = {}) {
+  // GA4
   if (typeof gtag === 'function') {
     gtag('event', action, {
       feature_category: category,
@@ -46,6 +47,19 @@ function trackFeature(category, action, details = {}) {
       timestamp: Date.now(),
       ...details
     });
+  }
+  // Supabase usage_logs (fire-and-forget, ne bloque pas l'UI)
+  if (typeof sb !== 'undefined') {
+    const demo = typeof isDemo !== 'undefined' ? isDemo : false;
+    const lang = typeof lmLang !== 'undefined' ? lmLang : null;
+    const { user_type, language, ...meta } = details;
+    sb.rpc('insert_usage_log', {
+      p_module:   category,
+      p_action:   action,
+      p_is_demo:  demo,
+      p_language: language || lang || null,
+      p_metadata: Object.keys(meta).length > 0 ? meta : null
+    }).catch(() => {}); // silencieux — ne pas casser l'app si ça échoue
   }
 }
 
@@ -3060,6 +3074,8 @@ async function initApp() {
   }
 
   console.log('currentProfile:', currentProfile?.email, currentProfile?.role);
+  gtag('set', 'user_properties', { user_type: 'resident' });
+  trackFeature('platform', 'resident_login');
   showApp();
 }
 
@@ -3286,6 +3302,8 @@ async function loginDemo() {
   ];
   showApp();
   toast('Mode démo activé — consultation uniquement', 'info');
+  gtag('set', 'user_properties', { user_type: 'demo' });
+  trackFeature('platform', 'demo_login');
 }
 
 async function logout() {
@@ -3502,6 +3520,12 @@ function navigateTo(page) {
     case 'admin': loadAdmin(); break;
     case 'lunch': onLunchPageShow(); break;
   }
+
+  // Analytics — navigation CoHabitat
+  trackFeature('navigation', 'page_view', {
+    cohabitat_page: page,
+    user_type: isDemo ? 'demo' : 'resident'
+  });
 }
 
 function pageName(page) {
@@ -3784,7 +3808,7 @@ async function confirmBookSpace() {
   document.getElementById('nav-balance').textContent = `${currentProfile.virtual_balance.toFixed(2)}`;
 
   toast('Réservation confirmée !', 'success');
-  trackFeature('shared_spaces', 'space_reserved', { space_name: space?.name || '', cost: cost, slots: slots });
+  trackFeature('shared_spaces', 'space_reserved', { space_name: space?.name || '', cost: cost, slots: slots, user_type: isDemo ? 'demo' : 'resident' });
   closeModal('modal-book-space');
   await logRequest(currentBookingSpaceId, 'space', 'book', { reservation_id: res.id });
 }
@@ -4131,7 +4155,7 @@ async function submitTripBooking() {
   if (error) { toast('Erreur: ' + error.message, 'error'); return; }
   await logRequest(currentBookingTripId, 'trip', 'request', { booking_id: data.id });
   toast('Demande envoyée ! Le chauffeur doit l\'accepter.', 'success');
-  trackFeature('covoiturage', 'booking_request', { seats: seats, cargo: cargo });
+  trackFeature('covoiturage', 'booking_request', { seats: seats, cargo: cargo, user_type: isDemo ? 'demo' : 'resident' });
   closeModal('modal-book-trip');
 }
 
@@ -4607,7 +4631,7 @@ async function submitDriverOffer() {
   if (error) { toast('Erreur: ' + error.message, 'error'); return; }
 
   toast('Proposition envoyée au passager !', 'success');
-  trackFeature('covoiturage', 'driver_offer', { vehicle_id: vehicleId });
+  trackFeature('covoiturage', 'driver_offer', { vehicle_id: vehicleId, user_type: isDemo ? 'demo' : 'resident' });
   closeModal('modal-driver-offer');
 }
 
@@ -5766,6 +5790,7 @@ function lmSetLang(l) {
   });
   lmApplyLang();
   ptApply();
+  trackFeature('platform', 'language_select', { language: l, user_type: isDemo ? 'demo' : 'resident' });
 }
 function lmApplyLang() {
   // Re-render all dynamic text
@@ -6259,7 +6284,7 @@ function lmConfirmKioskReservation() {
   window.gantryQueue.push({ slotId: slotId, xFrac: xFrac, desc: slotDesc, price: price });
 
   lmShowSuccess(lmT('successMsg', buyer), '#' + slotId + ' — ' + zoneName + ' — ' + priceStr);
-  trackFeature('lunch_machine', 'slot_reserved', { slot_id: slotId, zone: zoneName, price: price });
+  trackFeature('lunch_machine', 'slot_reserved', { slot_id: slotId, zone: zoneName, price: price, user_type: isDemo ? 'demo' : 'resident' });
 }
 
 function lmShowSuccess(msg, sub) {
