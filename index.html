@@ -3707,12 +3707,13 @@ async function loadDashboard() {
 }
 
 function statusBadge(s) {
-  return { confirmed: 'badge-green', pending: 'badge-yellow', cancelled: 'badge-red', completed: 'badge-gray', accepted: 'badge-green', rejected: 'badge-red' }[s] || 'badge-gray';
+  return { confirmed: 'badge-green', pending: 'badge-yellow', cancelled: 'badge-red', completed: 'badge-gray', accepted: 'badge-green', rejected: 'badge-red', unconfirmed: 'badge-orange' }[s] || 'badge-gray';
 }
 function statusLabel(s) {
   return {
     confirmed: pt('Confirmée'), pending: pt('En attente'), cancelled: pt('Annulée'),
-    completed: pt('Terminée'), accepted: pt('Acceptée'), rejected: pt('Refusée')
+    completed: pt('Complété'), accepted: pt('Acceptée'), rejected: pt('Refusée'),
+    unconfirmed: pt('Non confirmé')
   }[s] || s;
 }
 
@@ -3912,7 +3913,7 @@ async function renderTripsTab() {
     renderTripBookings(bookings || []);
     return;
   } else if (currentTripsTab === 'driving') {
-    query = query.eq('driver_id', currentProfile?.id);
+    query = query.eq('driver_id', currentProfile?.id).eq('status', 'published');
   } else if (currentTripsTab === 'history') {
     await renderTripHistory();
     return;
@@ -3977,16 +3978,21 @@ function renderAvailableTrips(trips) {
 
 function renderDriverTrips(trips) {
   const grid = document.getElementById('trips-grid');
-  grid.innerHTML = `<div class="cards-grid">${trips.map(t => {
+  const now = new Date();
+  const upcoming = trips.filter(t => new Date(t.departure_time) > now && t.status === 'published');
+  const unconfirmed = trips.filter(t => new Date(t.departure_time) <= now && t.status === 'published' && !t.confirmed_at);
+
+  function tripCard(t, isUnconfirmed = false) {
     const depTime = new Date(t.departure_time);
+    const displayStatus = isUnconfirmed ? 'unconfirmed' : t.status;
     return `
-    <div class="card">
+    <div class="card${isUnconfirmed ? ' style="border-left:3px solid var(--warning,#f59e0b)"' : ''}">
       <div class="card-header">
         <div>
           <div class="card-title">${escHtml(t.title)}</div>
           <div class="card-subtitle">${depTime.toLocaleString('fr-CA', { dateStyle: 'full', timeStyle: 'short' })}</div>
         </div>
-        <span class="badge ${statusBadge(t.status)}">${statusLabel(t.status)}</span>
+        <span class="badge ${statusBadge(displayStatus)}">${statusLabel(displayStatus)}</span>
       </div>
       <div class="trip-route">
         <div class="route-line"></div>
@@ -3999,10 +4005,36 @@ function renderDriverTrips(trips) {
       </div>
       <div class="card-actions">
         <button class="btn btn-secondary btn-sm" onclick="openTripDetail('${t.id}')">Gérer</button>
-        ${t.status === 'published' ? `<button class="btn btn-danger btn-sm" onclick="cancelTrip('${t.id}')">Annuler</button>` : ''}
+        ${isUnconfirmed
+          ? `<button class="btn btn-success btn-sm" onclick="confirmTrip('${t.id}')">✅ Confirmer le trajet</button>`
+          : `<button class="btn btn-danger btn-sm" onclick="cancelTrip('${t.id}')">Annuler</button>`
+        }
       </div>
     </div>`;
-  }).join('')}</div>`;
+  }
+
+  let html = '';
+  if (unconfirmed.length) {
+    html += `<div style="margin-bottom:8px;font-weight:600;color:var(--warning,#f59e0b)">⚠️ À confirmer (${unconfirmed.length})</div>`;
+    html += `<div class="cards-grid">${unconfirmed.map(t => tripCard(t, true)).join('')}</div>`;
+    if (upcoming.length) html += `<div style="margin:20px 0 8px;font-weight:600;color:var(--text-secondary)">📅 À venir</div>`;
+  }
+  if (upcoming.length) {
+    html += `<div class="cards-grid">${upcoming.map(t => tripCard(t, false)).join('')}</div>`;
+  }
+  if (!unconfirmed.length && !upcoming.length) {
+    html = `<div class="empty-state"><div class="empty-icon">🚗</div><p>${pt('Aucun trajet trouvé')}</p></div>`;
+  }
+  grid.innerHTML = html;
+}
+
+async function confirmTrip(tripId) {
+  const { error } = await sb.from('trips')
+    .update({ status: 'completed', confirmed_at: new Date().toISOString() })
+    .eq('id', tripId);
+  if (error) { toast('Erreur lors de la confirmation', 'error'); return; }
+  toast('Trajet confirmé !', 'success');
+  switchTripsTab('history');
 }
 
 function toggleRecurring() {
@@ -4014,25 +4046,38 @@ function toggleRecurring() {
 async function renderTripHistory() {
   const grid = document.getElementById('trips-grid');
   grid.innerHTML = `<div class="loading"><div class="spinner"></div> Chargement…</div>`;
-  const { data, error } = await sb.from('trips_with_details').select('*')
-    .eq('driver_id', currentProfile.id)
-    .in('status', ['cancelled', 'completed'])
-    .order('departure_time', { ascending: false })
-    .limit(50);
-  if (error || !data?.length) {
+  const now = new Date().toISOString();
+  // Fetch completed/cancelled AND past published (unconfirmed)
+  const [{ data: done }, { data: unconf }] = await Promise.all([
+    sb.from('trips_with_details').select('*')
+      .eq('driver_id', currentProfile.id)
+      .in('status', ['cancelled', 'completed'])
+      .order('departure_time', { ascending: false })
+      .limit(50),
+    sb.from('trips_with_details').select('*')
+      .eq('driver_id', currentProfile.id)
+      .eq('status', 'published')
+      .lt('departure_time', now)
+      .order('departure_time', { ascending: false })
+      .limit(50)
+  ]);
+  const data = [...(unconf || []), ...(done || [])];
+  if (!data.length) {
     grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🕐</div><p>Aucun trajet dans l\'historique</p></div>';
     return;
   }
   tripsCache = data;
   grid.innerHTML = `<div class="cards-grid">${data.map(t => {
     const depTime = new Date(t.departure_time);
-    return `<div class="card" style="opacity:0.8">
+    const isPastPublished = t.status === 'published' && !t.confirmed_at;
+    const displayStatus = isPastPublished ? 'unconfirmed' : t.status;
+    return `<div class="card" style="opacity:${isPastPublished ? '1' : '0.8'}">
       <div class="card-header">
         <div>
           <div class="card-title">${escHtml(t.title)}</div>
           <div class="card-subtitle">${depTime.toLocaleString('fr-CA', { dateStyle: 'full', timeStyle: 'short' })}</div>
         </div>
-        <span class="badge ${statusBadge(t.status)}">${statusLabel(t.status)}</span>
+        <span class="badge ${statusBadge(displayStatus)}">${statusLabel(displayStatus)}</span>
       </div>
       <div class="trip-route">
         <div class="route-line"></div>
@@ -4042,10 +4087,11 @@ async function renderTripHistory() {
       <div class="card-meta">
         <span class="meta-item">🚗 ${escHtml(t.vehicle_model || '—')}</span>
         <span class="meta-item">👥 ${t.available_seats} places</span>
-        <span class="meta-item">📅 ${depTime.toLocaleDateString('fr-CA', { weekday: 'long' })}</span>
+        ${t.confirmed_at ? `<span class="meta-item">✅ Confirmé le ${new Date(t.confirmed_at).toLocaleString('fr-CA', { dateStyle: 'short', timeStyle: 'short' })}</span>` : ''}
       </div>
       <div class="card-actions">
-        <button class="btn btn-success btn-sm" onclick="openReactivateTrip('${t.id}')">🔄 Réactiver</button>
+        ${isPastPublished ? `<button class="btn btn-success btn-sm" onclick="confirmTrip('${t.id}')">✅ Confirmer le trajet</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="openReactivateTrip('${t.id}')">🔄 Réactiver</button>
       </div>
     </div>`;
   }).join('')}</div>`;
