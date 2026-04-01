@@ -54,13 +54,13 @@ function trackFeature(category, action, details = {}) {
     const demo = typeof isDemo !== 'undefined' ? isDemo : false;
     const lang = typeof lmLang !== 'undefined' ? lmLang : null;
     const { user_type, language, ...meta } = details;
-    sb.rpc('insert_usage_log', {
+    Promise.resolve(sb.rpc('insert_usage_log', {
       p_module:   category,
       p_action:   action,
       p_is_demo:  demo,
       p_language: language || lang || null,
       p_metadata: Object.keys(meta).length > 0 ? meta : null
-    }).catch(() => {}); // silencieux — ne pas casser l'app si ça échoue
+    })).catch(() => {}); // silencieux — ne pas casser l'app si ça échoue
   }
 }
 
@@ -7377,7 +7377,7 @@ async function onLunchPageShow() {
   lmShowScreen('screen-home');
 
   // Expirer les slots périmés côté serveur
-  sb.rpc('lm_expire_slots').then(({ data }) => {
+  Promise.resolve(sb.rpc('lm_expire_slots')).then(({ data }) => {
     if (data && data > 0) {
       trackFeature('lunch_machine', 'slots_expired', { count: data });
     }
