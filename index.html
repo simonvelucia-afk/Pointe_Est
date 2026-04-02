@@ -5553,11 +5553,16 @@ async function saveVehicle() {
   }
   if (vehicleId) {
     const pricing = { price_per_minute: priceMin, price_per_km: priceKm, price_per_cargo_slot: priceCargo, driver_reduction_pct: driverReduction };
-    const { data: existing } = await sb.from('vehicle_pricing').select('id').eq('vehicle_id', vehicleId).single();
-    if (existing) {
-      await sb.from('vehicle_pricing').update(pricing).eq('vehicle_id', vehicleId);
+    const { data: existing, error: selErr } = await sb.from('vehicle_pricing').select('id').eq('vehicle_id', vehicleId).maybeSingle();
+    console.log('vehicle_pricing select:', existing, selErr);
+    if (existing?.id) {
+      const { error: updErr } = await sb.from('vehicle_pricing').update(pricing).eq('vehicle_id', vehicleId);
+      console.log('vehicle_pricing update error:', updErr);
+      if (updErr) { toast('Erreur tarification: ' + updErr.message, 'error'); return; }
     } else {
-      await sb.from('vehicle_pricing').insert({ ...pricing, vehicle_id: vehicleId, created_by: currentProfile.id });
+      const { error: insErr } = await sb.from('vehicle_pricing').insert({ ...pricing, vehicle_id: vehicleId, created_by: currentProfile.id });
+      console.log('vehicle_pricing insert error:', insErr);
+      if (insErr) { toast('Erreur tarification: ' + insErr.message, 'error'); return; }
     }
   }
   toast('Véhicule enregistré', 'success');
