@@ -2561,12 +2561,22 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <label>Dépendant</label>
       <select id="dep-trip-select"></select>
     </div>
+    <input type="hidden" id="dep-trip-driver-pickup">
+    <input type="hidden" id="dep-trip-driver-dropoff">
     <div class="form-group">
       <label>Point d'embarquement</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:400;text-transform:none;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" id="dep-same-pickup" style="width:auto;margin:0" onchange="depSamePoint('pickup')">
+        Même point que le chauffeur
+      </label>
       <input type="text" id="dep-trip-pickup" placeholder="Adresse de départ">
     </div>
     <div class="form-group">
       <label>Point de dépôt</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:400;text-transform:none;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" id="dep-same-dropoff" style="width:auto;margin:0" onchange="depSamePoint('dropoff')">
+        Même point que le chauffeur
+      </label>
       <input type="text" id="dep-trip-dropoff" placeholder="Adresse de destination">
     </div>
     <div class="modal-footer">
@@ -4273,11 +4283,21 @@ function openBookTrip(tripId) {
     </div>
     <div class="form-group">
       <label>Point d'embarquement souhaité</label>
-      <input type="text" id="booking-pickup" placeholder="Votre adresse de départ" value="${escHtml(trip.departure_point)}">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:400;text-transform:none;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" id="booking-same-pickup" style="width:auto;margin:0" checked
+          onchange="this.nextElementSibling.disabled=this.checked; this.nextElementSibling.value=this.checked?'${escHtml(trip.departure_point)}':''">
+        Même point que le chauffeur
+      </label>
+      <input type="text" id="booking-pickup" placeholder="Votre adresse de départ" value="${escHtml(trip.departure_point)}" disabled>
     </div>
     <div class="form-group">
       <label>Point de dépôt souhaité</label>
-      <input type="text" id="booking-dropoff" placeholder="Votre adresse de destination" value="${escHtml(trip.destination)}">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:400;text-transform:none;margin-bottom:6px;cursor:pointer">
+        <input type="checkbox" id="booking-same-dropoff" style="width:auto;margin:0" checked
+          onchange="this.nextElementSibling.disabled=this.checked; this.nextElementSibling.value=this.checked?'${escHtml(trip.destination)}':''">
+        Même point que le chauffeur
+      </label>
+      <input type="text" id="booking-dropoff" placeholder="Votre adresse de destination" value="${escHtml(trip.destination)}" disabled>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -4701,6 +4721,20 @@ async function confirmPassengerTrip(bookingId, tripId) {
   openTripDetail(tripId);
 }
 
+function depSamePoint(field) {
+  if (field === 'pickup') {
+    const val = document.getElementById('dep-same-pickup').checked
+      ? document.getElementById('dep-trip-driver-pickup').value : '';
+    document.getElementById('dep-trip-pickup').value = val;
+    document.getElementById('dep-trip-pickup').disabled = document.getElementById('dep-same-pickup').checked;
+  } else {
+    const val = document.getElementById('dep-same-dropoff').checked
+      ? document.getElementById('dep-trip-driver-dropoff').value : '';
+    document.getElementById('dep-trip-dropoff').value = val;
+    document.getElementById('dep-trip-dropoff').disabled = document.getElementById('dep-same-dropoff').checked;
+  }
+}
+
 async function openAddDependentToTrip(tripId, seatsLeft) {
   closeModal('modal-trip-detail');
   await new Promise(r => setTimeout(r, 150));
@@ -4722,8 +4756,16 @@ async function openAddDependentToTrip(tripId, seatsLeft) {
     deps.map(d => `<option value="${d.id}">${d.name}${d.age ? ` (${d.age} ans)` : ''}${!d.allow_trips ? ' ⚠️ non autorisé' : ''}</option>`).join('');
   sel.value = '';
 
-  document.getElementById('dep-trip-pickup').value = '';
+  // Fetch trip departure/destination for "same as driver" checkboxes
+  const tripRow = tripsCache.find(t => t.id === tripId);
+  const driverPickup  = tripRow?.departure_point || '';
+  const driverDropoff = tripRow?.destination || '';
+  document.getElementById('dep-trip-driver-pickup').value  = driverPickup;
+  document.getElementById('dep-trip-driver-dropoff').value = driverDropoff;
+  document.getElementById('dep-trip-pickup').value  = '';
   document.getElementById('dep-trip-dropoff').value = '';
+  document.getElementById('dep-same-pickup').checked  = false;
+  document.getElementById('dep-same-dropoff').checked = false;
 
   openModal('modal-add-dep-trip');
 }
