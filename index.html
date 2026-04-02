@@ -1576,6 +1576,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <button class="admin-tab" onclick="switchTripsTab('mine')" data-pt="Mes trajets">Mes trajets</button>
         <button class="admin-tab" id="driver-tab" style="display:none" onclick="switchTripsTab('driving')" data-pt="En tant que chauffeur">En tant que chauffeur</button>
         <button class="admin-tab" id="history-tab" style="display:none" onclick="switchTripsTab('history')" data-pt="Historique">🕐 Historique</button>
+        <button class="admin-tab" id="terms-tab" onclick="switchTripsTab('terms')" data-pt="Conditions">📋 Conditions</button>
       </div>
 
       <!-- Formule de tarification accordion -->
@@ -2612,6 +2613,35 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="modal-footer" style="margin-top:16px">
       <button class="btn btn-secondary" onclick="closeModal('modal-reactivate-trip')">Annuler</button>
       <button class="btn btn-primary" onclick="submitReactivateTrip()">Publier</button>
+    </div>
+  </div>
+</div>
+
+<!-- Disembark Passenger Modal -->
+<div class="modal-overlay" id="modal-disembark">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3>🛑 Débarquement passager</h3>
+      <button class="modal-close" onclick="closeModal('modal-disembark')">×</button>
+    </div>
+    <input type="hidden" id="disembark-booking-id">
+    <input type="hidden" id="disembark-trip-id">
+    <input type="hidden" id="disembark-seats">
+    <input type="hidden" id="disembark-cargo">
+    <p style="font-size:.88rem;color:var(--text2);margin-bottom:16px">Confirmez le débarquement du passager et entrez les kilomètres utilisés pour le facturer.</p>
+    <div class="form-group">
+      <label>Kilomètres utilisés par ce passager</label>
+      <input type="number" id="disembark-km" min="0" step="0.1" placeholder="ex: 12.5"
+        style="padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);width:100%">
+    </div>
+    <div class="form-group">
+      <label style="font-size:.82rem">Note (optionnel)</label>
+      <input type="text" id="disembark-note" placeholder="Commentaire"
+        style="padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);width:100%">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-disembark')">Annuler</button>
+      <button class="btn btn-success" onclick="confirmDisembark()">✅ Confirmer le débarquement</button>
     </div>
   </div>
 </div>
@@ -3935,11 +3965,131 @@ async function loadTrips() {
 function switchTripsTab(tab) {
   currentTripsTab = tab;
   document.querySelectorAll('#page-trips .admin-tab').forEach((t, i) => {
-    t.classList.toggle('active', ['available', 'requests', 'mine', 'driving', 'history'][i] === tab);
+    t.classList.toggle('active', ['available', 'requests', 'mine', 'driving', 'history', 'terms'][i] === tab);
   });
   const accordion = document.getElementById('trips-formula-accordion');
   if (accordion) accordion.style.display = tab === 'available' ? '' : 'none';
   renderTripsTab();
+}
+
+function renderTripTerms() {
+  const grid = document.getElementById('trips-grid');
+  const lang = (typeof currentLang !== 'undefined' ? currentLang : 'fr').toLowerCase().slice(0,2);
+
+  const terms = {
+    fr: {
+      title: "Conditions d'utilisation",
+      subtitle: "Système de réservation et de covoiturage — Modulimo",
+      updated: "En vigueur à compter du 1er avril 2026",
+      sections: [
+        { icon: "🎯", title: "Objet", body: "Le présent document régit l'utilisation du système de réservation d'espaces communs et du service de covoiturage mis à disposition des résidents de la communauté Modulimo. En utilisant ces services, vous acceptez les présentes conditions dans leur intégralité." },
+        { icon: "👤", title: "Admissibilité", body: "Les services sont réservés aux résidents actifs de Modulimo et à leurs dépendants autorisés. Tout résident dont le compte est suspendu ou dont le solde virtuel est insuffisant peut se voir refuser l'accès aux services." },
+        { icon: "🚗", title: "Service de covoiturage", body: "Le chauffeur s'engage à effectuer le trajet annoncé, à prendre en charge les passagers acceptés aux points convenus, et à retourner le véhicule communautaire dans l'état où il l'a trouvé. Le passager s'engage à être présent au point d'embarquement à l'heure convenue. Tout retard non signalé peut entraîner l'annulation de la réservation sans remboursement." },
+        { icon: "💳", title: "Tarification et facturation", body: "Le coût d'un trajet est calculé en fonction du temps d'utilisation du véhicule et des kilomètres réellement parcourus par chaque passager. Le chauffeur bénéficie d'une réduction en reconnaissance du service rendu à la communauté. Les montants sont débités du solde virtuel du passager et confirmés par le chauffeur après la course. Aucun remboursement n'est accordé une fois le trajet confirmé." },
+        { icon: "🏠", title: "Réservation d'espaces communs", body: "Les espaces communs sont réservables selon les disponibilités affichées. Une réservation confirmée engage le résident à utiliser l'espace au moment prévu et à le laisser propre et en bon état. Toute annulation doit être effectuée au moins 2 heures avant le début de la réservation pour obtenir un remboursement complet." },
+        { icon: "⚠️", title: "Responsabilités", body: "Modulimo agit à titre de facilitateur et ne peut être tenu responsable des incidents survenant entre résidents dans le cadre du covoiturage ou de l'utilisation des espaces communs. Chaque résident est responsable de son comportement et s'engage à traiter les autres membres de la communauté avec respect." },
+        { icon: "🔒", title: "Confidentialité", body: "Les informations personnelles collectées (nom, unité, téléphone) sont utilisées exclusivement à des fins de coordination des services. Elles ne sont pas transmises à des tiers. En mode démo, les données sont anonymisées. Vous pouvez demander la suppression de vos données en contactant l'administration." },
+        { icon: "🔄", title: "Modifications", body: "Modulimo se réserve le droit de modifier les présentes conditions à tout moment. Les résidents seront informés par voie d'affichage sur le babillard de la plateforme. L'utilisation continue des services après modification vaut acceptation des nouvelles conditions." },
+        { icon: "📞", title: "Contact", body: "Pour toute question relative aux présentes conditions ou aux services, veuillez contacter l'administration via le babillard de la plateforme ou à l'adresse contribution@modulimo.com." }
+      ]
+    },
+    en: {
+      title: "Terms of Use",
+      subtitle: "Booking & Carpooling System — Modulimo",
+      updated: "Effective April 1, 2026",
+      sections: [
+        { icon: "🎯", title: "Purpose", body: "This document governs the use of the common space reservation system and carpooling service made available to Modulimo community residents. By using these services, you agree to these terms in their entirety." },
+        { icon: "👤", title: "Eligibility", body: "Services are reserved for active Modulimo residents and their authorized dependents. Any resident whose account is suspended or whose virtual balance is insufficient may be denied access to services." },
+        { icon: "🚗", title: "Carpooling Service", body: "The driver agrees to complete the announced trip, pick up accepted passengers at the agreed pickup points, and return the community vehicle in the condition it was found. The passenger agrees to be present at the boarding point at the agreed time. Any unnotified delay may result in cancellation of the booking without refund." },
+        { icon: "💳", title: "Pricing and Billing", body: "The cost of a trip is calculated based on vehicle usage time and the actual kilometers traveled by each passenger. The driver receives a discount in recognition of the service rendered to the community. Amounts are debited from the passenger's virtual balance and confirmed by the driver after the ride. No refunds are granted once a trip is confirmed." },
+        { icon: "🏠", title: "Common Space Reservations", body: "Common spaces are bookable based on displayed availability. A confirmed reservation commits the resident to use the space at the scheduled time and leave it clean and in good condition. Cancellations must be made at least 2 hours before the reservation start time for a full refund." },
+        { icon: "⚠️", title: "Responsibilities", body: "Modulimo acts as a facilitator and cannot be held responsible for incidents occurring between residents in the context of carpooling or use of common spaces. Each resident is responsible for their conduct and agrees to treat other community members with respect." },
+        { icon: "🔒", title: "Privacy", body: "Personal information collected (name, unit, phone) is used exclusively for service coordination purposes. It is not transmitted to third parties. In demo mode, data is anonymized. You may request deletion of your data by contacting the administration." },
+        { icon: "🔄", title: "Modifications", body: "Modulimo reserves the right to modify these terms at any time. Residents will be notified through the platform bulletin board. Continued use of services after modification constitutes acceptance of the new terms." },
+        { icon: "📞", title: "Contact", body: "For any questions regarding these terms or services, please contact administration via the platform bulletin board or at contribution@modulimo.com." }
+      ]
+    },
+    es: {
+      title: "Términos de Uso",
+      subtitle: "Sistema de reservas y carpooling — Modulimo",
+      updated: "En vigor desde el 1 de abril de 2026",
+      sections: [
+        { icon: "🎯", title: "Objeto", body: "Este documento rige el uso del sistema de reserva de espacios comunes y el servicio de carpooling puesto a disposición de los residentes de la comunidad Modulimo. Al utilizar estos servicios, usted acepta estos términos en su totalidad." },
+        { icon: "👤", title: "Elegibilidad", body: "Los servicios están reservados a los residentes activos de Modulimo y sus dependientes autorizados. A cualquier residente cuya cuenta esté suspendida o cuyo saldo virtual sea insuficiente se le puede denegar el acceso a los servicios." },
+        { icon: "🚗", title: "Servicio de Carpooling", body: "El conductor se compromete a realizar el viaje anunciado, a recoger a los pasajeros aceptados en los puntos acordados y a devolver el vehículo comunitario en el estado en que lo encontró. El pasajero se compromete a estar presente en el punto de embarque a la hora acordada. Cualquier retraso no notificado puede resultar en la cancelación de la reserva sin reembolso." },
+        { icon: "💳", title: "Tarifas y Facturación", body: "El costo de un viaje se calcula en función del tiempo de uso del vehículo y los kilómetros realmente recorridos por cada pasajero. El conductor recibe un descuento en reconocimiento del servicio prestado a la comunidad. Los montos se debitan del saldo virtual del pasajero y son confirmados por el conductor después del viaje. No se otorgan reembolsos una vez confirmado el viaje." },
+        { icon: "🏠", title: "Reservas de Espacios Comunes", body: "Los espacios comunes se pueden reservar según la disponibilidad mostrada. Una reserva confirmada compromete al residente a usar el espacio en el momento programado y dejarlo limpio y en buen estado. Las cancelaciones deben realizarse al menos 2 horas antes del inicio de la reserva para obtener un reembolso completo." },
+        { icon: "⚠️", title: "Responsabilidades", body: "Modulimo actúa como facilitador y no puede ser responsable de los incidentes que ocurran entre residentes en el contexto del carpooling o el uso de espacios comunes. Cada residente es responsable de su conducta y se compromete a tratar a los demás miembros de la comunidad con respeto." },
+        { icon: "🔒", title: "Privacidad", body: "La información personal recopilada (nombre, unidad, teléfono) se utiliza exclusivamente para fines de coordinación de servicios. No se transmite a terceros. En modo demo, los datos son anonimizados. Puede solicitar la eliminación de sus datos contactando a la administración." },
+        { icon: "🔄", title: "Modificaciones", body: "Modulimo se reserva el derecho de modificar estos términos en cualquier momento. Los residentes serán notificados a través del tablón de anuncios de la plataforma. El uso continuado de los servicios después de la modificación constituye la aceptación de los nuevos términos." },
+        { icon: "📞", title: "Contacto", body: "Para cualquier pregunta sobre estos términos o servicios, comuníquese con la administración a través del tablón de anuncios de la plataforma o en contribution@modulimo.com." }
+      ]
+    }
+  };
+
+  const activeLang = terms[lang] ? lang : 'fr';
+
+  const langBtn = (l, label) => `
+    <button onclick="switchTermsLang('${l}')" id="terms-lang-${l}"
+      style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:${activeLang===l?'var(--accent)':'var(--surface)'};color:${activeLang===l?'#000':'var(--text2)'};font-size:.82rem;cursor:pointer;font-weight:${activeLang===l?'700':'400'};transition:all .2s">
+      ${label}
+    </button>`;
+
+  const renderSections = (t) => t.sections.map(s => `
+    <div style="display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:start;padding:16px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:1.4rem;line-height:1">${s.icon}</div>
+      <div>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;font-size:.95rem">${s.title}</div>
+        <div style="font-size:.875rem;color:var(--text2);line-height:1.65">${s.body}</div>
+      </div>
+    </div>`).join('');
+
+  const t = terms[activeLang];
+  grid.innerHTML = `
+    <div style="max-width:780px;margin:0 auto">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:20px;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:10px">📋</div>
+        <h2 id="terms-title" style="margin:0 0 6px;font-size:1.4rem;color:var(--text)">${t.title}</h2>
+        <p id="terms-subtitle" style="margin:0 0 16px;color:var(--text2);font-size:.9rem">${t.subtitle}</p>
+        <!-- Language switcher -->
+        <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap" id="terms-lang-switcher">
+          ${langBtn('fr','🇫🇷 Français')}
+          ${langBtn('en','🇬🇧 English')}
+          ${langBtn('es','🇪🇸 Español')}
+        </div>
+        <p id="terms-updated" style="margin:14px 0 0;font-size:.78rem;color:var(--text3);font-style:italic">${t.updated}</p>
+      </div>
+
+      <!-- Sections -->
+      <div id="terms-sections" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 24px 16px">
+        ${renderSections(t)}
+      </div>
+
+      <!-- Footer -->
+      <div style="text-align:center;margin-top:16px;padding:14px;font-size:.78rem;color:var(--text3)">
+        © ${new Date().getFullYear()} Modulimo · contribution@modulimo.com
+      </div>
+    </div>`;
+
+  // Expose switcher function on window
+  window._termsData = terms;
+  window.switchTermsLang = function(l) {
+    const td = window._termsData[l];
+    if (!td) return;
+    document.getElementById('terms-title').textContent    = td.title;
+    document.getElementById('terms-subtitle').textContent = td.subtitle;
+    document.getElementById('terms-updated').textContent  = td.updated;
+    document.getElementById('terms-sections').innerHTML   = renderSections(td);
+    // Update buttons
+    ['fr','en','es'].forEach(code => {
+      const btn = document.getElementById('terms-lang-' + code);
+      if (!btn) return;
+      btn.style.background = code === l ? 'var(--accent)' : 'var(--surface)';
+      btn.style.color      = code === l ? '#000' : 'var(--text2)';
+      btn.style.fontWeight = code === l ? '700' : '400';
+    });
+  };
 }
 
 function toggleFormulaAccordion() {
@@ -3978,6 +4128,9 @@ async function renderTripsTab() {
     query = query.eq('driver_id', currentProfile?.id).eq('status', 'published');
   } else if (currentTripsTab === 'history') {
     await renderTripHistory();
+    return;
+  } else if (currentTripsTab === 'terms') {
+    renderTripTerms();
     return;
   }
 
@@ -4463,6 +4616,8 @@ async function openTripDetail(tripId) {
             ${isDriver && b.status === 'pending' ? `
               <button class="btn btn-success btn-sm" onclick="acceptBooking('${b.id}')">✓</button>
               <button class="btn btn-danger btn-sm" onclick="rejectBooking('${b.id}')">✗</button>` : ''}
+            ${isDriver && b.status === 'accepted' && b.seats_requested > 0 ? `
+              <button class="btn btn-warning btn-sm" style="background:var(--accent3,#f59e0b);border-color:var(--accent3,#f59e0b);color:#000" onclick="openDisembark('${b.id}','${tripId}',${b.seats_requested},${b.cargo_pct_requested||0})">🛑 Débarquer</button>` : ''}
           </span>
         </div>
         <div style="font-size:.82rem;color:var(--text3);margin-bottom:4px">${b.pickup_location || ''} → ${b.dropoff_location || ''} · ${b.seats_requested || 0} place(s)${b.cargo_pct_requested ? ` · ${b.cargo_pct_requested}% cargo` : ''}</div>
@@ -4599,13 +4754,15 @@ async function openTripDetail(tripId) {
   `;
 
   const footerBtns = [];
-  if (isDriver && trip.status === 'published' && !isPast) {
+  const tripActive = isDriver && trip.status !== 'completed' && trip.status !== 'cancelled';
+  if (tripActive) {
     footerBtns.push(`<button class="btn btn-success btn-sm" onclick="closeModal('modal-trip-detail');openAddDependentToTrip('${trip.id}', ${trip.available_seats - (trip.booked_seats||0)})">👨‍👩‍👧 Dépendant</button>`);
     footerBtns.push(`<button class="btn btn-secondary btn-sm" onclick="closeModal('modal-trip-detail');openDriverCargo('${trip.id}', ${trip.cargo_available_pct - (trip.booked_cargo_pct||0)})">📦 Cargo</button>`);
-    footerBtns.push(`<button class="btn btn-danger" onclick="cancelTrip('${trip.id}');closeModal('modal-trip-detail')">Annuler le trajet</button>`);
-  } else {
-    footerBtns.push(`<button class="btn btn-secondary" onclick="closeModal('modal-trip-detail')">Fermer</button>`);
+    if (!isPast) {
+      footerBtns.push(`<button class="btn btn-danger" onclick="cancelTrip('${trip.id}');closeModal('modal-trip-detail')">Annuler le trajet</button>`);
+    }
   }
+  footerBtns.push(`<button class="btn btn-secondary" onclick="closeModal('modal-trip-detail')">Fermer</button>`);
   document.getElementById('trip-detail-footer').innerHTML = footerBtns.join('');
 
   openModal('modal-trip-detail');
@@ -4757,7 +4914,11 @@ async function openAddDependentToTrip(tripId, seatsLeft) {
   sel.value = '';
 
   // Fetch trip departure/destination for "same as driver" checkboxes
-  const tripRow = tripsCache.find(t => t.id === tripId);
+  let tripRow = tripsCache.find(t => t.id === tripId);
+  if (!tripRow) {
+    const { data } = await sb.from('trips').select('departure_point, destination').eq('id', tripId).single();
+    tripRow = data || {};
+  }
   const driverPickup  = tripRow?.departure_point || '';
   const driverDropoff = tripRow?.destination || '';
   document.getElementById('dep-trip-driver-pickup').value  = driverPickup;
@@ -4830,6 +4991,49 @@ async function submitDriverCargo() {
   if (error) { toast('Erreur: ' + error.message, 'error'); return; }
   toast(`${amount}% de cargo réservé`, 'success');
   closeModal('modal-driver-cargo');
+  openTripDetail(tripId);
+}
+
+function openDisembark(bookingId, tripId, seats, cargo) {
+  document.getElementById('disembark-booking-id').value = bookingId;
+  document.getElementById('disembark-trip-id').value    = tripId;
+  document.getElementById('disembark-seats').value      = seats;
+  document.getElementById('disembark-cargo').value      = cargo;
+  document.getElementById('disembark-km').value         = '';
+  document.getElementById('disembark-note').value       = '';
+  openModal('modal-disembark');
+}
+
+async function confirmDisembark() {
+  const bookingId = document.getElementById('disembark-booking-id').value;
+  const tripId    = document.getElementById('disembark-trip-id').value;
+  const seats     = parseInt(document.getElementById('disembark-seats').value) || 0;
+  const cargo     = parseInt(document.getElementById('disembark-cargo').value) || 0;
+  const km        = parseFloat(document.getElementById('disembark-km').value) || 0;
+  const note      = document.getElementById('disembark-note').value.trim() || null;
+
+  if (!km) { toast('Entrez les kilomètres utilisés', 'error'); return; }
+
+  // Mark booking as completed with km and driver note
+  const { error: bErr } = await sb.from('trip_bookings').update({
+    status: 'completed',
+    actual_km: km,
+    passenger_confirmed: true,
+    passenger_note: note
+  }).eq('id', bookingId);
+  if (bErr) { toast('Erreur: ' + bErr.message, 'error'); return; }
+
+  // Free up seats and cargo on the trip
+  if (seats > 0 || cargo > 0) {
+    const { data: trip } = await sb.from('trips').select('available_seats, cargo_available_pct').eq('id', tripId).single();
+    if (trip) {
+      // We don't modify available_seats directly (it's the max), 
+      // the booked count drops automatically via the booking status change in the view
+    }
+  }
+
+  toast('Passager débarqué et km enregistrés', 'success');
+  closeModal('modal-disembark');
   openTripDetail(tripId);
 }
 
