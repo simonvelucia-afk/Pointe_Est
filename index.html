@@ -1429,6 +1429,11 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <span id="auth-toggle-text">Pas encore de compte ?</span>
         <button onclick="toggleAuthMode()"> S'inscrire</button>
       </div>
+      <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+        <button onclick="showLoginConditions()" style="background:none;border:none;color:var(--text3);font-size:.82rem;cursor:pointer;text-decoration:underline">
+          📋 Conditions d'utilisation
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -3985,6 +3990,25 @@ function switchTripsTab(tab) {
   renderTripsTab();
 }
 
+
+function showLoginConditions() {
+  const modal = document.getElementById('modal-login-conditions');
+  const container = document.getElementById('modal-login-conditions-content');
+  if (!modal || !container) return;
+  // Reuse loadConditions logic with this container
+  const lang = (typeof lmLang !== 'undefined' ? lmLang : 'fr').slice(0,2);
+  // Temporarily swap container and call loadConditions logic
+  const realContainer = document.getElementById('conditions-content');
+  // Swap
+  if (realContainer) realContainer.id = 'conditions-content-hidden';
+  container.id = 'conditions-content';
+  loadConditions();
+  container.id = 'modal-login-conditions-content';
+  if (realContainer) realContainer.id = 'conditions-content';
+  modal.style.display = 'block';
+  modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+}
+
 function loadConditions() {
   const lang = (typeof lmLang !== 'undefined' ? lmLang : 'fr').slice(0,2);
 
@@ -4055,7 +4079,24 @@ function loadConditions() {
 
   const t = terms[activeLang];
   const container = document.getElementById('conditions-content');
+  if (!container) return;
 
+  const hdr = '<div style="max-width:780px;margin:0 auto">'
+    + '<div style="background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:20px;text-align:center">'
+    + '<div style="font-size:2rem;margin-bottom:10px">&#x1F4CB;</div>'
+    + '<h2 style="margin:0 0 6px;font-size:1.4rem;color:var(--text)">' + t.title + '</h2>'
+    + '<p style="margin:0 0 8px;color:var(--text2);font-size:.9rem">' + t.subtitle + '</p>'
+    + '<p style="margin:0;font-size:.78rem;color:var(--text3);font-style:italic">' + t.updated + '</p>'
+    + '</div>';
+
+  const bdy = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 24px 16px;margin-bottom:16px">'
+    + renderSections(t) + '</div>';
+
+  const ftr = '<div style="text-align:center;padding:14px;font-size:.78rem;color:var(--text3)">'
+    + '&copy; ' + new Date().getFullYear() + ' Modulimo &middot; contribution@modulimo.com</div></div>';
+
+  container.innerHTML = hdr + bdy + ftr;
+}
 
 function toggleFormulaAccordion() {
   const body = document.getElementById('formula-body');
@@ -8446,5 +8487,16 @@ async function bbDeletePost(id) {
 
 
 
+
+<!-- Conditions modal (accessible avant login) -->
+<div id="modal-login-conditions" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;overflow-y:auto;padding:20px">
+  <div style="max-width:700px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:0 0 20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--border)">
+      <h3 style="margin:0;font-size:1.1rem">📋 Conditions d'utilisation</h3>
+      <button onclick="document.getElementById('modal-login-conditions').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:1.4rem;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="modal-login-conditions-content" style="padding:0 24px"></div>
+  </div>
+</div>
 </body>
 </html>
