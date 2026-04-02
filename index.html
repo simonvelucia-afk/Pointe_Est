@@ -5553,15 +5553,18 @@ async function saveVehicle() {
   }
   if (vehicleId) {
     const pricing = { price_per_minute: priceMin, price_per_km: priceKm, price_per_cargo_slot: priceCargo, driver_reduction_pct: driverReduction };
-    const { data: existing, error: selErr } = await sb.from('vehicle_pricing').select('id').eq('vehicle_id', vehicleId).maybeSingle();
-    console.log('vehicle_pricing select:', existing, selErr);
-    if (existing?.id) {
-      const { error: updErr } = await sb.from('vehicle_pricing').update(pricing).eq('vehicle_id', vehicleId);
-      console.log('vehicle_pricing update error:', updErr);
+    // Fetch all rows for this vehicle (may have duplicates)
+    const { data: rows } = await sb.from('vehicle_pricing').select('id').eq('vehicle_id', vehicleId);
+    if (rows && rows.length > 0) {
+      // Update the first row by its primary key id
+      const { error: updErr } = await sb.from('vehicle_pricing').update(pricing).eq('id', rows[0].id);
       if (updErr) { toast('Erreur tarification: ' + updErr.message, 'error'); return; }
+      // Delete any duplicate rows
+      if (rows.length > 1) {
+        await sb.from('vehicle_pricing').delete().in('id', rows.slice(1).map(r => r.id));
+      }
     } else {
       const { error: insErr } = await sb.from('vehicle_pricing').insert({ ...pricing, vehicle_id: vehicleId, created_by: currentProfile.id });
-      console.log('vehicle_pricing insert error:', insErr);
       if (insErr) { toast('Erreur tarification: ' + insErr.message, 'error'); return; }
     }
   }
