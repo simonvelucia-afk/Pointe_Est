@@ -2580,7 +2580,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <div class="modal-overlay" id="modal-reactivate-trip">
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
-      <h3>🔄 Réactiver le trajet</h3>
+      <h3>📅 Re-céduler le trajet</h3>
       <button class="modal-close" onclick="closeModal('modal-reactivate-trip')">×</button>
     </div>
     <div class="form-group">
@@ -4148,9 +4148,14 @@ async function renderTripHistory() {
 }
 
 let reactivatingTripId = null;
-function openReactivateTrip(tripId) {
+async function openReactivateTrip(tripId) {
   reactivatingTripId = tripId;
-  const trip = tripsCache.find(t => t.id === tripId) || {};
+  // Fetch from cache first, fallback to DB (needed when called from Mes trajets passés)
+  let trip = tripsCache.find(t => t.id === tripId);
+  if (!trip) {
+    const { data } = await sb.from('trips').select('*').eq('id', tripId).single();
+    trip = data || {};
+  }
   // Set tomorrow as default
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -4205,7 +4210,7 @@ async function submitReactivateTrip() {
     if (!error) created++;
   }
 
-  toast(`${created} trajet(s) publié(s) !`, 'success');
+  toast(`${created} trajet(s) re-cédulé(s) !`, 'success');
   closeModal('modal-reactivate-trip');
   switchTripsTab('driving');
 }
@@ -4234,7 +4239,7 @@ function renderTripBookings(bookings) {
             ? `<button class="btn btn-danger btn-sm" onclick="cancelBooking('${b.id}')">Annuler</button>`
             : ''}
           ${isPast && b.trips?.id
-            ? `<button class="btn btn-secondary btn-sm" onclick="openBookTrip('${b.trips.id}')">🔄 Rebooker</button>`
+            ? `<button class="btn btn-secondary btn-sm" onclick="openReactivateTrip('${b.trips.id}')">📅 Re-céduler</button>`
             : ''}
         </td>
       </tr>`).join('');
