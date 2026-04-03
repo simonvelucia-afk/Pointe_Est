@@ -3722,7 +3722,7 @@ function checkActive() {
   if (isDemo) return true;
   if (!currentProfile) return false;
   if (currentProfile.is_active === false) {
-    toast('Votre compte est inactif. Contactez l'administrateur.', 'error');
+    toast('Votre compte est inactif. Contactez l\'administrateur.', 'error');
     return false;
   }
   if (!currentProfile.terms_accepted_at || currentProfile.terms_version !== TERMS_VERSION) {
