@@ -3072,6 +3072,7 @@ let currentUser = null;
 let currentProfile = null;
 let isDemo = false;
 const TERMS_VERSION = '2026-04-02'; // Mettre à jour à chaque révision des conditions
+const TERMS_VERSION = '2026-04-02'; // Mettre à jour à chaque révision des conditions
 
 // ===== ANONYMISATION MODE DÉMO =====
 // Génère un pseudonyme stable et déterministe à partir d'une chaîne (id ou nom)
@@ -3526,7 +3527,7 @@ function showLogin() {
     inp.setAttribute('autocorrect', 'off');
     inp.setAttribute('autocapitalize', 'off');
     inp.setAttribute('spellcheck', 'false');
-    inp.style.cssText = '-webkit-text-security:disc;font-family:monospace;';
+    inp.style.cssText = '-webkit-text-security:disc;font-family:monospace;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:10px 14px;outline:none;font-size:0.95rem;box-sizing:border-box;';
     inp.oninput = () => { document.getElementById('auth-error').style.display = 'none'; };
     inp.onkeydown = (e) => { if (e.key === 'Enter') authSubmit(); };
 
