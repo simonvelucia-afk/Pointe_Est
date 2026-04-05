@@ -1388,6 +1388,38 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   border-color: var(--accent);
 }
 .lm-admin-panel { display: block; }
+
+/* ── PAGE DE VENTE ─────────────────────────────────────────────────── */
+#landing { width:100%; padding:48px 20px 60px; max-width:960px; margin:0 auto; }
+.landing-tagline { text-align:center; margin-bottom:48px; }
+.landing-tagline h2 { font-family:var(--font-serif); font-size:1.6rem; color:var(--text); font-weight:400; margin-bottom:10px; }
+.landing-tagline p { color:var(--text2); font-size:.95rem; line-height:1.6; max-width:560px; margin:0 auto; }
+.plans-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; margin-bottom:48px; }
+.plan-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px 24px; position:relative; transition:border-color .2s; }
+.plan-card:hover { border-color:var(--accent); }
+.plan-card.featured { border-color:var(--accent); }
+.plan-badge { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--accent); color:#0f0f0f; font-size:11px; font-weight:700; padding:3px 12px; border-radius:99px; letter-spacing:.05em; white-space:nowrap; }
+.plan-name { font-family:'Barlow Condensed',sans-serif; font-size:1.1rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text); margin-bottom:6px; }
+.plan-price { font-size:2rem; font-weight:600; color:var(--accent); line-height:1; margin-bottom:4px; }
+.plan-price span { font-size:.9rem; font-weight:400; color:var(--text2); }
+.plan-units { font-size:.82rem; color:var(--text3); margin-bottom:20px; }
+.plan-features { list-style:none; padding:0; margin:0 0 24px; }
+.plan-features li { font-size:.88rem; color:var(--text2); padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); display:flex; gap:8px; align-items:flex-start; line-height:1.4; }
+.plan-features li::before { content:'✓'; color:var(--accent2); flex-shrink:0; font-weight:700; margin-top:1px; }
+.plan-features li.off { color:var(--text3); }
+.plan-features li.off::before { content:'–'; color:var(--text3); }
+.plan-cta { display:block; width:100%; padding:10px; text-align:center; border-radius:6px; font-size:.9rem; font-weight:600; cursor:pointer; border:none; font-family:var(--font-sans); transition:opacity .15s; }
+.plan-cta:hover { opacity:.85; }
+.plan-cta.primary { background:var(--accent); color:#0f0f0f; }
+.plan-cta.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+.landing-features { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:48px; }
+.feat-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+.feat-icon { font-size:1.4rem; margin-bottom:10px; }
+.feat-title { font-weight:600; font-size:.9rem; color:var(--text); margin-bottom:6px; }
+.feat-desc { font-size:.82rem; color:var(--text2); line-height:1.5; }
+.landing-contact { text-align:center; padding:32px 20px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); }
+.landing-contact h3 { font-family:var(--font-serif); font-size:1.2rem; font-weight:400; margin-bottom:8px; }
+.landing-contact p { color:var(--text2); font-size:.88rem; margin-bottom:18px; }
 </style>
 </head>
 <body>
@@ -1456,12 +1488,44 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <span id="auth-toggle-text">Pas encore de compte ?</span>
         <button onclick="toggleAuthMode()"> S'inscrire</button>
       </div>
-      <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;">
         <button onclick="showLoginConditions()" style="background:none;border:none;color:var(--text3);font-size:.82rem;cursor:pointer;text-decoration:underline">
           📋 Conditions d'utilisation
         </button>
+        <button onclick="document.getElementById('login-page').style.display='none';document.getElementById('landing').style.display='block';window.scrollTo(0,0);loadLandingPlans();" style="background:none;border:none;color:var(--accent2);font-size:.82rem;cursor:pointer;text-decoration:underline">
+          💡 Découvrir les forfaits CoHabitat
+        </button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- PAGE DE VENTE -->
+<div id="landing" style="display:none;">
+  <div class="landing-tagline">
+    <h2>La plateforme communautaire pour votre immeuble</h2>
+    <p>CoHabitat centralise la gestion des espaces communs, du covoiturage et des services de votre co-housing — simple, sécurisé, conforme à la Loi 25.</p>
+  </div>
+  <div class="plans-grid" id="landing-plans-grid">
+    <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3)">Chargement des forfaits…</div>
+  </div>
+
+  <div class="landing-features">
+    <div class="feat-item"><div class="feat-icon">🔒</div><div class="feat-title">Sécurité et confidentialité</div><div class="feat-desc">Données isolées par bâtiment, conformité Loi 25, chiffrement Supabase.</div></div>
+    <div class="feat-item"><div class="feat-icon">🏠</div><div class="feat-title">Espaces communs</div><div class="feat-desc">Réservations en ligne, tarification au créneau de 15 minutes, historique complet.</div></div>
+    <div class="feat-item"><div class="feat-icon">🚗</div><div class="feat-title">Auto-partage</div><div class="feat-desc">Covoiturage entre résidents, calcul automatique des coûts, gestion des trajets.</div></div>
+    <div class="feat-item"><div class="feat-icon">🍱</div><div class="feat-title">Machine Lunch</div><div class="feat-desc">Kiosque de commande de repas avec interface tactile et gestion des cases réfrigérées.</div></div>
+    <div class="feat-item"><div class="feat-icon">👨‍👩‍👧</div><div class="feat-title">Gestion des dépendants</div><div class="feat-desc">Accès individualisé par ressource pour chaque membre du foyer.</div></div>
+    <div class="feat-item"><div class="feat-icon">📊</div><div class="feat-title">Statistiques</div><div class="feat-desc">Rapport d'utilisation et export CSV pour les administrateurs.</div></div>
+  </div>
+
+  <div style="text-align:center;margin-bottom:24px;">
+    <button onclick="document.getElementById('landing').style.display='none';document.getElementById('login-page').style.display='flex';" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:.85rem;padding:8px 18px;border-radius:6px;cursor:pointer;font-family:var(--font-sans);">← Retour à la connexion</button>
+  </div>
+  <div class="landing-contact">
+    <h3>Prêt à moderniser votre co-housing ?</h3>
+    <p>Contactez-nous pour une démonstration gratuite ou pour discuter de vos besoins spécifiques.</p>
+    <a href="/cdn-cgi/l/email-protection#ddaeb4b0b2b3f3abb8b1a8beb4bc9dbab0bcb4b1f3beb2b0" style="display:inline-block;background:var(--accent);color:#0f0f0f;padding:11px 28px;border-radius:6px;font-weight:600;font-size:.9rem;text-decoration:none;"><span class="__cf_email__" data-cfemail="25564c484a4b0b53404950464c44654248444c490b464a48">[email&#160;protected]</span></a>
   </div>
 </div>
 
@@ -3112,7 +3176,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 </div>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ==========================================
 // CONFIGURATION SUPABASE
 // ==========================================
@@ -3199,6 +3263,41 @@ let currentBookingTripId = null;
 // ==========================================
 // INIT
 // ==========================================
+async function loadLandingPlans() {
+  const grid = document.getElementById('landing-plans-grid');
+  if (!grid) return;
+  try {
+    const res = await fetch(
+      CENTRAL_URL + '/rest/v1/plans?active=eq.true&select=*,plan_features(*)&order=sort_order',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY } }
+    );
+    const plans = await res.json();
+    if (!plans || !plans.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text3)">Aucun forfait disponible</div>';
+      return;
+    }
+    grid.innerHTML = plans.map(function(p) {
+      const feats = (p.plan_features || []).sort(function(a,b){ return a.sort_order - b.sort_order; });
+      const price = p.price_monthly ? p.price_monthly + ' $<span> / mois</span>' : '<span style="font-size:1.1rem">Sur devis</span>';
+      const units = p.max_units ? 'Jusqu\'à ' + p.max_units + ' unités résidentielles' : 'Unités illimitées · réseau multi-bâtiments';
+      const ctaClass = p.featured ? 'primary' : 'secondary';
+      const featHtml = feats.map(function(f) {
+        return '<li class="' + (f.included ? '' : 'off') + '">' + f.label + '</li>';
+      }).join('');
+      return '<div class="plan-card ' + (p.featured ? 'featured' : '') + '">'
+        + (p.featured ? '<div class="plan-badge">Le plus populaire</div>' : '')
+        + '<div class="plan-name">' + p.name + '</div>'
+        + '<div class="plan-price">' + price + '</div>'
+        + '<div class="plan-units">' + units + '</div>'
+        + '<ul class="plan-features">' + featHtml + '</ul>'
+        + '<button class="plan-cta ' + ctaClass + '" onclick="document.getElementById(\'landing\').style.display=\'none\';document.getElementById(\'login-page\').style.display=\'flex\';">Nous contacter</button>'
+        + '</div>';
+    }).join('');
+  } catch(e) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text3)">Impossible de charger les forfaits</div>';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Créer les champs de login dynamiquement dès le départ
   showLogin();
@@ -9274,18 +9373,4 @@ function setConsent(choice) {
   localStorage.setItem('ga_consent', choice);
   window._gaConsent = choice;
   var b = document.getElementById('consent-banner');
-  if (b) b.style.display = 'none';
-  if (choice === 'granted') {
-    _loadGA();
-    trackFeature('platform', 'consent_granted');
-  }
-}
-
-function closeBanner() {
-  var b = document.getElementById('consent-banner');
-  if (b) b.style.display = 'none';
-}
-</script>
-
-</body>
-</html>
+  if (b) b.style.display = 
