@@ -3140,6 +3140,7 @@ let editingId = null; // for modals in edit mode
 
 // Cache
 let spacesCache = [];
+let resourceAccessCache = { spaces: new Set(), vehicles: new Set() };
 let vehiclesCache = [];
 let tripsCache = [];
 let tenantsCache = [];
@@ -3231,6 +3232,7 @@ async function initApp() {
 
   if (window._gaConsent === 'granted') gtag('set', 'user_properties', { user_type: 'resident' });
   trackFeature('platform', 'resident_login');
+  await loadResourceAccess();
   showApp();
 }
 
@@ -3475,6 +3477,18 @@ async function logout() {
 // ==========================================
 // PROFILE
 // ==========================================
+async function loadResourceAccess() {
+  if (isDemo || !currentProfile) return;
+  const { data } = await sb.from('resource_access')
+    .select('resource_type, resource_id')
+    .eq('user_id', currentProfile.id);
+  resourceAccessCache.spaces   = new Set((data || []).filter(r => r.resource_type === 'space').map(r => r.resource_id));
+  resourceAccessCache.vehicles = new Set((data || []).filter(r => r.resource_type === 'vehicle').map(r => r.resource_id));
+}
+
+function hasSpaceAccess(spaceId)    { return isDemo || resourceAccessCache.spaces.has(spaceId); }
+function hasVehicleAccess(vehicleId) { return isDemo || resourceAccessCache.vehicles.has(vehicleId); }
+
 async function loadProfile() {
   if (!currentUser) return;
   const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
@@ -3977,7 +3991,12 @@ function renderSpaces(spaces) {
       </div>
       <div class="card-price">${price.toFixed(2)} $ <small style="font-size:.75rem;color:var(--text2)">${pt('/ 15 min')}</small></div>
       <div class="card-actions">
-        ${!isDemo ? `<button class="btn btn-primary btn-sm" onclick="openBookSpace('${s.id}', '${escHtml(s.name)}')">${pt('Réserver')}</button>` : ''}
+        ${!isDemo
+          ? hasSpaceAccess(s.id)
+            ? `<button class="btn btn-primary btn-sm" onclick="openBookSpace('${s.id}', '${escHtml(s.name)}')">${pt('Réserver')}</button>`
+            : `<button class="btn btn-secondary btn-sm" disabled style="opacity:0.5;cursor:not-allowed;" title="Accès restreint — contactez l'administrateur">🔒 Accès restreint</button>`
+          : ''
+        }
       </div>
     </div>`;
   }).join('');
@@ -4310,7 +4329,9 @@ function renderAvailableTrips(trips) {
       </div>
       <div class="card-actions">
         ${currentProfile?.id !== t.driver_id && seatsLeft > 0
-          ? `<button class="btn btn-primary btn-sm" onclick="openBookTrip('${t.id}')">Demander une place</button>`
+          ? hasVehicleAccess(t.vehicle_id)
+            ? `<button class="btn btn-primary btn-sm" onclick="openBookTrip('${t.id}')">Demander une place</button>`
+            : `<button class="btn btn-secondary btn-sm" disabled style="opacity:0.5;cursor:not-allowed;" title="Accès au véhicule restreint — contactez l'administrateur">🔒 Véhicule restreint</button>`
           : ''
         }
         <button class="btn btn-secondary btn-sm" onclick="openTripDetail('${t.id}')">Détails</button>
@@ -5730,10 +5751,81 @@ async function loadTenants() {
       <td>${(t.virtual_balance || 0).toFixed(2)} $</td>
       <td class="td-actions">
         <button class="btn ${t.is_active === false ? 'btn-success' : 'btn-warning'} btn-sm" onclick="quickToggleTenant('${t.id}', ${t.is_active === false})">${t.is_active === false ? '🔓 Réactiver' : '🔒 Suspendre'}</button>
+        <button class="btn btn-info btn-sm" onclick="openAccessManager('${t.id}', '${escHtml(t.full_name)}')">🗝 Accès</button>
         <button class="btn btn-secondary btn-sm" onclick="editTenant('${t.id}')">Modifier</button>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">Aucun locataire</td></tr>';
+}
+
+// ── GESTION DES ACCÈS PAR RESSOURCE ─────────────────────────────────────────
+let accessManagerUserId = null;
+let accessManagerSpaces = [];
+let accessManagerVehicles = [];
+let accessManagerUserAccess = { spaces: new Set(), vehicles: new Set() };
+
+async function openAccessManager(userId, userName) {
+  accessManagerUserId = userId;
+  document.getElementById('access-manager-title').textContent = '🗝 Accès — ' + userName;
+  const [{ data: spaces }, { data: vehicles }, { data: access }] = await Promise.all([
+    sb.from('common_spaces').select('id, name').eq('is_available', true).order('name'),
+    sb.from('vehicles').select('id, model, license_plate').eq('is_available', true).order('model'),
+    sb.from('resource_access').select('resource_type, resource_id').eq('user_id', userId)
+  ]);
+  accessManagerSpaces = spaces || [];
+  accessManagerVehicles = vehicles || [];
+  accessManagerUserAccess.spaces   = new Set((access || []).filter(r => r.resource_type === 'space').map(r => r.resource_id));
+  accessManagerUserAccess.vehicles = new Set((access || []).filter(r => r.resource_type === 'vehicle').map(r => r.resource_id));
+  renderAccessManager();
+  openModal('modal-access-manager');
+}
+
+function renderAccessManager() {
+  const spaceRows = accessManagerSpaces.map(s => {
+    const has = accessManagerUserAccess.spaces.has(s.id);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;">🏠 ${escHtml(s.name)}</span>
+      <button class="btn ${has ? 'btn-warning' : 'btn-success'} btn-sm" onclick="toggleResourceAccess('space','${s.id}',${!has})">
+        ${has ? '🔒 Retirer' : '🔓 Accorder'}
+      </button>
+    </div>`;
+  }).join('');
+  const vehicleRows = accessManagerVehicles.map(v => {
+    const has = accessManagerUserAccess.vehicles.has(v.id);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;">🚗 ${escHtml(v.model)} (${escHtml(v.license_plate)})</span>
+      <button class="btn ${has ? 'btn-warning' : 'btn-success'} btn-sm" onclick="toggleResourceAccess('vehicle','${v.id}',${!has})">
+        ${has ? '🔒 Retirer' : '🔓 Accorder'}
+      </button>
+    </div>`;
+  }).join('');
+  document.getElementById('access-manager-body').innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:8px;">Espaces communs</div>
+      ${spaceRows || '<p style="color:var(--text3);font-size:13px;">Aucun espace</p>'}
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:8px;">Véhicules</div>
+      ${vehicleRows || '<p style="color:var(--text3);font-size:13px;">Aucun véhicule</p>'}
+    </div>`;
+}
+
+async function toggleResourceAccess(type, resourceId, grant) {
+  if (grant) {
+    const { error } = await sb.from('resource_access').insert({
+      user_id: accessManagerUserId, resource_type: type,
+      resource_id: resourceId, granted_by: currentProfile.id
+    });
+    if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+    (type === 'space' ? accessManagerUserAccess.spaces : accessManagerUserAccess.vehicles).add(resourceId);
+  } else {
+    const { error } = await sb.from('resource_access').delete()
+      .eq('user_id', accessManagerUserId).eq('resource_type', type).eq('resource_id', resourceId);
+    if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+    (type === 'space' ? accessManagerUserAccess.spaces : accessManagerUserAccess.vehicles).delete(resourceId);
+  }
+  renderAccessManager();
+  toast(grant ? '🔓 Accès accordé' : '🔒 Accès retiré', 'success');
 }
 
 async function quickToggleTenant(id, activate) {
@@ -8648,6 +8740,21 @@ async function bbDeletePost(id) {
 
 
 
+
+
+<!-- Modal gestion accès par ressource -->
+<div id="modal-access-manager" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="max-width:520px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);max-height:80vh;display:flex;flex-direction:column;">
+    <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <span id="access-manager-title" style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;"></span>
+      <button onclick="closeModal('modal-access-manager')" style="background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer;padding:4px 8px;">✕</button>
+    </div>
+    <div id="access-manager-body" style="padding:16px 20px;overflow-y:auto;flex:1;"></div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;flex-shrink:0;">
+      <button class="btn btn-secondary" onclick="closeModal('modal-access-manager')">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Conditions modal (accessible avant login) -->
 <div id="modal-login-conditions" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;overflow-y:auto;padding:20px">
