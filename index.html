@@ -3086,7 +3086,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentProfile = null;
 let isDemo = false;
-const TERMS_VERSION = '2026-04-02'; // Mettre à jour à chaque révision des conditions
+const TERMS_VERSION = '2026-04-05'; // Mettre à jour à chaque révision des conditions
 
 // ===== ANONYMISATION MODE DÉMO =====
 // Génère un pseudonyme stable et déterministe à partir d'une chaîne (id ou nom)
@@ -3916,7 +3916,7 @@ async function loadDashboard() {
       <thead><tr><th>${pt('Type')}</th><th>${pt('Ressource')}</th><th>${pt('Date')}</th><th>${pt('Coût')}</th><th>${pt('Statut')}</th></tr></thead>
       <tbody>${combined.map(r => `<tr>
         <td><span class="badge badge-gray">${r.type}</span></td>
-        <td>${r.name || '—'}</td>
+        <td>${escHtml(r.name || '—')}</td>
         <td>${r.date ? new Date(r.date).toLocaleString(appLang === 'fr' ? 'fr-CA' : appLang === 'es' ? 'es-ES' : 'en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
         <td>${(r.cost || 0).toFixed(2)} $</td>
         <td><span class="badge ${statusBadge(r.status)}">${statusLabel(r.status)}</span></td>
@@ -3973,7 +3973,7 @@ function renderSpaces(spaces) {
       </div>
       <div class="card-meta">
         <span class="meta-item">👥 ${s.capacity} ${pt('personnes')}</span>
-        ${s.description ? `<span class="meta-item">📝 ${s.description.slice(0,40)}${s.description.length > 40 ? '…' : ''}</span>` : ''}
+        ${s.description ? `<span class="meta-item">📝 ${escHtml(s.description.slice(0,40))}${s.description.length > 40 ? '…' : ''}</span>` : ''}
       </div>
       <div class="card-price">${price.toFixed(2)} $ <small style="font-size:.75rem;color:var(--text2)">${pt('/ 15 min')}</small></div>
       <div class="card-actions">
@@ -4140,7 +4140,7 @@ function loadConditions() {
       updated: "En vigueur à compter du 1er avril 2026",
       sections: [
         { icon: "📋", title: "Dispositions générales", body: "Les présentes conditions régissent l'utilisation de l'ensemble des services numériques mis à disposition des résidents de la communauté Modulimo via la plateforme CoHabitat. En utilisant l'un ou l'autre de ces services, vous acceptez les présentes conditions dans leur intégralité. Ces conditions s'appliquent à tous les résidents actifs et à leurs dépendants autorisés." },
-        { icon: "👤", title: "Admissibilité et accès", body: "Les services sont réservés aux résidents actifs de Modulimo et à leurs dépendants autorisés. Tout nouveau résident doit être approuvé par un administrateur avant que son compte soit activé et que l'accès à la plateforme lui soit accordé. Un administrateur peut révoquer l'accès à la plateforme à tout moment, sans préavis, si la situation l'exige. Tout résident dont le compte est suspendu, dont le solde virtuel est insuffisant, ou dont le loyer présente un retard de paiement peut se voir suspendre l'accès aux services jusqu'à régularisation de sa situation. Modulimo se réserve le droit de suspendre ou de révoquer l'accès de tout résident en cas de manquement aux présentes conditions." },
+        { icon: "👤", title: "Admissibilité et accès", body: "Les services sont réservés aux résidents actifs de Modulimo et à leurs dépendants autorisés. Tout nouveau résident doit être approuvé par un administrateur avant que son compte soit activé et que l'accès à la plateforme lui soit accordé. Un administrateur peut suspendre ou révoquer l'accès d'un locataire à tout moment, sans préavis. Chaque locataire peut suspendre en tout temps l'accès aux ressources communes de ses dépendants depuis son profil. Tout résident dont le compte est suspendu, dont le solde virtuel est insuffisant, ou dont le loyer présente un retard de paiement peut se voir suspendre l'accès aux services jusqu'à régularisation de sa situation. Modulimo se réserve le droit de suspendre ou de révoquer l'accès de tout résident en cas de manquement aux présentes conditions." },
         { icon: "🪪", title: "Approbation des chauffeurs", body: "Tout résident souhaitant agir comme chauffeur doit obtenir l'approbation de l'administration. Dans le cadre de ce processus, Modulimo se réserve le droit de procéder à une vérification des antécédents judiciaires du candidat, incluant un casier judiciaire et, le cas échéant, un extrait du dossier de conduite. Le candidat sera informé à l'avance et devra fournir son consentement écrit avant toute vérification. Le refus de consentir entraîne automatiquement le refus de la demande d'accréditation." },
         { icon: "💳", title: "Solde virtuel et facturation", body: "Chaque résident dispose d'un solde virtuel en crédits CoHabitat géré par l'administration. Les transactions sont débitées automatiquement lors de l'utilisation des services. Les crédits ne sont pas remboursables en espèces. En cas de solde insuffisant, l'accès aux services payants peut être restreint jusqu'au rechargement du compte." },
         { icon: "⚠️", title: "Responsabilités et sanctions", body: "Chaque résident est responsable de son comportement et s'engage à traiter les autres membres de la communauté avec respect. Modulimo agit à titre de facilitateur et ne peut être tenu responsable des incidents survenant entre résidents. Toute mauvaise utilisation des ressources communautaires, tout non-respect des présentes règles ou tout comportement jugé inapproprié par l'administration peut entraîner la suspension temporaire ou le retrait permanent du droit d'accès à la plateforme, sans remboursement du solde engagé." },
@@ -4158,7 +4158,7 @@ function loadConditions() {
       updated: "Effective April 1, 2026",
       sections: [
         { icon: "📋", title: "General Provisions", body: "These terms govern the use of all digital services made available to Modulimo community residents through the CoHabitat platform. By using any of these services, you agree to these terms in their entirety. These terms apply to all active residents and their authorized dependents." },
-        { icon: "👤", title: "Eligibility and Access", body: "Services are reserved for active Modulimo residents and their authorized dependents. Every new resident must be approved by an administrator before their account is activated and access to the platform is granted. An administrator may revoke platform access at any time, without notice, if the situation requires it. Any resident whose account is suspended, whose virtual balance is insufficient, or whose rent is in arrears may have their access to services suspended until their situation is resolved. Modulimo reserves the right to suspend or revoke access for any resident who violates these terms." },
+        { icon: "👤", title: "Eligibility and Access", body: "Services are reserved for active Modulimo residents and their authorized dependents. Every new resident must be approved by an administrator before their account is activated and access to the platform is granted. An administrator may suspend or revoke a resident's platform access at any time, without notice. Each resident may at any time suspend their dependents' access to common resources from their profile. Any resident whose account is suspended, whose virtual balance is insufficient, or whose rent is in arrears may have their access to services suspended until their situation is resolved. Modulimo reserves the right to suspend or revoke access for any resident who violates these terms." },
         { icon: "🪪", title: "Driver Approval", body: "Any resident wishing to act as a driver must obtain approval from the administration. As part of this process, Modulimo reserves the right to conduct a background check, including a criminal record check and, where applicable, a driving record extract. The applicant will be informed in advance and must provide written consent. Refusal to consent automatically results in denial of the accreditation request." },
         { icon: "💳", title: "Virtual Balance and Billing", body: "Each resident has a virtual CoHabitat credit balance managed by the administration. Transactions are automatically debited when services are used. Credits are not redeemable for cash. If the balance is insufficient, access to paid services may be restricted until the account is topped up." },
         { icon: "⚠️", title: "Responsibilities and Sanctions", body: "Each resident is responsible for their conduct and agrees to treat other community members with respect. Modulimo acts as a facilitator and cannot be held responsible for incidents between residents. Any misuse of community resources, failure to comply with these rules, or behavior deemed inappropriate may result in temporary suspension or permanent withdrawal of platform access, without reimbursement of any committed balance." },
@@ -4176,7 +4176,7 @@ function loadConditions() {
       updated: "En vigor desde el 1 de abril de 2026",
       sections: [
         { icon: "📋", title: "Disposiciones generales", body: "Estos términos rigen el uso de todos los servicios digitales puestos a disposición de los residentes de la comunidad Modulimo a través de la plataforma CoHabitat. Al utilizar cualquiera de estos servicios, usted acepta estos términos en su totalidad. Estos términos se aplican a todos los residentes activos y sus dependientes autorizados." },
-        { icon: "👤", title: "Elegibilidad y acceso", body: "Los servicios están reservados a los residentes activos de Modulimo y sus dependientes autorizados. Todo nuevo residente debe ser aprobado por un administrador antes de que su cuenta sea activada y se le otorgue acceso a la plataforma. Un administrador puede revocar el acceso a la plataforma en cualquier momento, sin previo aviso, si la situación lo requiere. A cualquier residente cuya cuenta esté suspendida, cuyo saldo virtual sea insuficiente, o cuyo alquiler presente un retraso en el pago se le puede suspender el acceso a los servicios hasta la regularización de su situación. Modulimo se reserva el derecho de suspender o revocar el acceso de cualquier residente que incumpla estos términos." },
+        { icon: "👤", title: "Elegibilidad y acceso", body: "Los servicios están reservados a los residentes activos de Modulimo y sus dependientes autorizados. Todo nuevo residente debe ser aprobado por un administrador antes de que su cuenta sea activada y se le otorgue acceso a la plataforma. Un administrador puede suspender o revocar el acceso de un residente en cualquier momento, sin previo aviso. Cada residente puede suspender en cualquier momento el acceso a los recursos comunes de sus dependientes desde su perfil. A cualquier residente cuya cuenta esté suspendida, cuyo saldo virtual sea insuficiente, o cuyo alquiler presente un retraso en el pago se le puede suspender el acceso a los servicios hasta la regularización de su situación. Modulimo se reserva el derecho de suspender o revocar el acceso de cualquier residente que incumpla estos términos." },
         { icon: "🪪", title: "Aprobación de conductores", body: "Todo residente que desee actuar como conductor debe obtener la aprobación de la administración. Como parte de este proceso, Modulimo se reserva el derecho de realizar una verificación de antecedentes, incluyendo un registro de antecedentes penales y, en su caso, un extracto del historial de conducción. El candidato será informado con antelación y deberá proporcionar su consentimiento por escrito. La negativa a dar el consentimiento resulta automáticamente en el rechazo de la solicitud." },
         { icon: "💳", title: "Saldo virtual y facturación", body: "Cada residente dispone de un saldo virtual de créditos CoHabitat gestionado por la administración. Las transacciones se debitan automáticamente al utilizar los servicios. Los créditos no son reembolsables en efectivo. Si el saldo es insuficiente, el acceso a los servicios de pago puede restringirse hasta que se recargue la cuenta." },
         { icon: "⚠️", title: "Responsabilidades y sanciones", body: "Cada residente es responsable de su conducta y se compromete a tratar a los demás miembros de la comunidad con respeto. Modulimo actúa como facilitador y no puede ser responsable de los incidentes entre residentes. Cualquier uso indebido de los recursos comunitarios, incumplimiento de estas normas o comportamiento inapropiado puede resultar en la suspensión temporal o la retirada permanente del acceso a la plataforma, sin reembolso del saldo comprometido." },
@@ -5038,7 +5038,7 @@ async function openAddDependentToTrip(tripId, seatsLeft) {
 
   const sel = document.getElementById('dep-trip-select');
   sel.innerHTML = '<option value="">— Choisir un dépendant —</option>' +
-    deps.map(d => `<option value="${d.id}">${d.name}${d.age ? ` (${d.age} ans)` : ''}${!d.allow_trips ? ' ⚠️ non autorisé' : ''}</option>`).join('');
+    deps.map(d => `<option value="${d.id}">${escHtml(d.name)}${d.age ? ` (${d.age} ans)` : ''}${!d.allow_trips ? ' ⚠️ non autorisé' : ''}</option>`).join('');
   sel.value = '';
 
   // Fetch trip departure/destination for "same as driver" checkboxes
@@ -5190,7 +5190,7 @@ async function openCreateTrip() {
   const { data: vehicles } = await sb.from('vehicles').select('*').eq('is_available', true);
   vehiclesCache = vehicles || [];
   document.getElementById('trip-vehicle').innerHTML = vehiclesCache.map(v =>
-    `<option value="${v.id}">${v.model} (${v.license_plate})</option>`
+    `<option value="${v.id}">${escHtml(v.model)} (${escHtml(v.license_plate)})</option>`
   ).join('');
 
   const now = new Date();
@@ -5423,7 +5423,7 @@ async function openDriverOffer(requestId, from, to, luggage, seats) {
 
   const { data: vehicles } = await sb.from('vehicles').select('*').eq('is_available', true);
   document.getElementById('offer-vehicle').innerHTML = (vehicles || []).map(v =>
-    `<option value="${v.id}">${v.model} (${v.license_plate})</option>`
+    `<option value="${v.id}">${escHtml(v.model)} (${escHtml(v.license_plate)})</option>`
   ).join('') || '<option value="">Aucun véhicule disponible</option>';
 
   document.getElementById('offer-luggage').value = '0';
@@ -5569,6 +5569,7 @@ async function loadDependents() {
     const age = d.age ? `${d.age} ans` : '';
     const actions = isDemo ? '' : `
       <button class="btn btn-success btn-sm" onclick="openTransfer('${d.id}','${d.name.replace(/'/g, "\\'")}','${(d.virtual_balance||0).toFixed(2)}')">💳 Crédits</button>
+      <button class="btn ${(d.allow_spaces||d.allow_trips||d.allow_lunch) ? 'btn-warning' : 'btn-secondary'} btn-sm" onclick="toggleDependentAccess('${d.id}', ${!(d.allow_spaces||d.allow_trips||d.allow_lunch)})">${(d.allow_spaces||d.allow_trips||d.allow_lunch) ? '🔒 Suspendre' : '🔓 Réactiver'}</button>
       <button class="btn btn-secondary btn-sm" onclick='editDependent(${JSON.stringify(d)})'>✏️</button>
       <button class="btn btn-danger btn-sm" onclick="deleteDependent('${d.id}')">🗑</button>`;
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
@@ -5637,6 +5638,17 @@ async function deleteDependent(id) {
   const { error } = await sb.from('dependents').delete().eq('id', id);
   if (error) { toast('Erreur: ' + error.message, 'error'); return; }
   toast('Dépendant supprimé', 'success');
+  loadDependents();
+}
+
+async function toggleDependentAccess(id, activate) {
+  const { error } = await sb.from('dependents').update({
+    allow_spaces: activate,
+    allow_trips: activate,
+    allow_lunch: activate
+  }).eq('id', id).eq('parent_id', currentProfile.id);
+  if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+  toast(activate ? '🔓 Accès réactivé' : '🔒 Accès suspendu', 'success');
   loadDependents();
 }
 
@@ -5717,10 +5729,24 @@ async function loadTenants() {
       <td>${t.is_approved_driver ? '<span class="badge badge-green">✓ Chauffeur</span>' : '—'}</td>
       <td>${(t.virtual_balance || 0).toFixed(2)} $</td>
       <td class="td-actions">
+        <button class="btn ${t.is_active === false ? 'btn-success' : 'btn-warning'} btn-sm" onclick="quickToggleTenant('${t.id}', ${t.is_active === false})">${t.is_active === false ? '🔓 Réactiver' : '🔒 Suspendre'}</button>
         <button class="btn btn-secondary btn-sm" onclick="editTenant('${t.id}')">Modifier</button>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">Aucun locataire</td></tr>';
+}
+
+async function quickToggleTenant(id, activate) {
+  const t = tenantsCache.find(x => x.id === id);
+  if (!t) return;
+  const { error } = await sb.from('profiles').update({
+    is_active: activate,
+    status_changed_at: new Date().toISOString(),
+    status_changed_by: currentProfile.id
+  }).eq('id', id);
+  if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+  toast(activate ? '🔓 Compte réactivé' : '🔒 Compte suspendu', 'success');
+  loadTenants();
 }
 
 function openAddTenant() {
@@ -5868,7 +5894,7 @@ async function loadAdminVehicles() {
   document.getElementById('admin-vehicles-tbody').innerHTML = (data || []).map(v => `
     <tr>
       <td>${escHtml(v.model)}</td>
-      <td>${v.license_plate}</td>
+      <td>${escHtml(v.license_plate)}</td>
       <td>${v.seat_count}</td>
       <td>${v.cargo_capacity_m3 || 0}</td>
       <td>${(v.vehicle_pricing?.[0]?.price_per_minute || 0).toFixed(2)} $</td>
@@ -6028,7 +6054,7 @@ async function loadSettings() {
   const form = document.getElementById('settings-form');
   form.innerHTML = (data || []).map(s => `
     <div class="form-group">
-      <label>${s.description || s.key}</label>
+      <label>${escHtml(s.description || s.key)}</label>
       <input type="text" id="setting-${s.key}" value="${escHtml(s.value)}">
     </div>
   `).join('');
@@ -6798,7 +6824,7 @@ function renderTempStrip(el) {
     const actual = (z.actual ?? z.setpoint).toFixed(1);
     el.innerHTML += `<div class="temp-zone">
       <div class="temp-dot" style="background:${color};${atSetpoint?'box-shadow:0 0 5px '+color+'88':''}"></div>
-      <div class="temp-zone-label" style="color:${atSetpoint?color:'var(--text-faint)'};">${z.name}</div>
+      <div class="temp-zone-label" style="color:${atSetpoint?color:'var(--text-faint)'};">${escHtml(z.name)}</div>
       <div class="temp-val" style="color:${atSetpoint?color:'var(--text-faint)'};">${actual}°C</div>
       <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-faint);margin-left:2px;">/ ${z.setpoint}°C</div>
       <div class="temp-cases">${count}/${total}</div>
@@ -6972,7 +6998,7 @@ function lmRenderGrid() {
     const section = document.createElement('div');
     section.innerHTML = `<div class="section-header">
       <div style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:${color}22;color:${color};border:1px solid ${color}55;">${actual}° <span style="opacity:.5;font-size:9px;">/ ${zone.setpoint}°</span></div>
-      <div class="section-label">${zone.name}</div>
+      <div class="section-label">${escHtml(zone.name)}</div>
       <div class="section-line"></div>
       <div style="font-size:10px;color:var(--text-faint);font-family:'Space Mono',monospace;">${freeCount} ${t('free')}</div>
     </div>`;
@@ -7323,7 +7349,7 @@ function lmRenderQuickMenus() {
   html += '<span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;width:100%;margin-bottom:2px;">Menus préparés :</span>';
   menus.forEach((m,i) => {
     html += `<button onclick="lmApplyMenuToSlot(${i})" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 10px;border-radius:4px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">`;
-    html += `${m.name} <span style="color:var(--text2);font-size:11px;">${m.price>0?'— '+m.price+' $':''}</span></button>`;
+    html += `${escHtml(m.name)} <span style="color:var(--text2);font-size:11px;">${m.price>0?'— '+m.price+' $':''}</span></button>`;
   });
   html += '</div>';
   container.innerHTML = html;
@@ -7350,7 +7376,7 @@ function lmRenderMenusList() {
   container.innerHTML = menus.map((m,i) => `
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:8px 10px;">
       <div style="flex:1;">
-        <span style="font-size:13px;font-weight:600;color:var(--text);">${m.name}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text);">${escHtml(m.name)}</span>
         ${m.price>0?`<span style="font-size:11px;color:var(--text2);margin-left:8px;">${m.price} $</span>`:''}
       </div>
       <button onclick="lmEditMenu(${i})" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:3px 8px;border-radius:3px;cursor:pointer;">✎ Modifier</button>
@@ -7546,7 +7572,7 @@ function lmRenderAdminTemps() {
     el.innerHTML += `
     <div style="margin-bottom:10px;background:var(--bg);border:1px solid var(--border);padding:8px 10px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${color};">${z.name}</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:${color};">${escHtml(z.name)}</span>
         <div style="width:8px;height:8px;border-radius:50%;background:${color};${color!=='#555'?'box-shadow:0 0 5px '+color:''};"></div>
         <span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-faint);">actuel: <span style="color:${color}">${(z.actual??z.setpoint).toFixed(1)}°C</span></span>
       </div>
@@ -7608,7 +7634,7 @@ function lmRenderAdminConfig() {
     if(!z) return;
     const color = lmZoneColor(z);
     el.innerHTML += `<div class="admin-row">
-      <div class="admin-label"><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:${color}22;color:${color};border:1px solid ${color}55;">${z.name}</span> — cases</div>
+      <div class="admin-label"><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:${color}22;color:${color};border:1px solid ${color}55;">${escHtml(z.name)}</span> — cases</div>
       <input class="admin-input" type="number" id="count-${id}" value="${z.count}" min="1" max="12">
     </div>`;
   });
