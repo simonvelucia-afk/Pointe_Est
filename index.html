@@ -1525,7 +1525,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <div class="landing-contact">
     <h3>Prêt à moderniser votre co-housing ?</h3>
     <p>Contactez-nous pour une démonstration gratuite ou pour discuter de vos besoins spécifiques.</p>
-    <button onclick="window.location.href='mai'+('lto:contribut')+('ion@modulimo.com')" style="display:inline-block;background:var(--accent);color:#0f0f0f;padding:11px 28px;border-radius:6px;font-weight:600;font-size:.9rem;border:none;cursor:pointer;font-family:var(--font-sans);">contribution@modulimo.com</button>
+    <button onclick="window.location.href='mai'+('lto:contribut')+('ion@modulimo.com')" style="display:inline-block;background:var(--accent);color:#0f0f0f;padding:11px 28px;border-radius:6px;font-weight:600;font-size:.9rem;border:none;cursor:pointer;font-family:var(--font-sans);"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3c5f5352484e555e49485553527c5153584950555153125f5351">[email&#160;protected]</a></button>
   </div>
 </div>
 
@@ -3176,7 +3176,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 </div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ==========================================
 // CONFIGURATION SUPABASE
 // ==========================================
@@ -6528,28 +6528,14 @@ async function loadTenants() {
       <td>${(t.virtual_balance || 0).toFixed(2)} $</td>
       <td class="td-actions">
         ${t.role !== 'principal_admin' ? `<button class="btn ${t.is_active === false ? 'btn-success' : 'btn-warning'} btn-sm" onclick="quickToggleTenant('${t.id}', ${t.is_active === false})">${t.is_active === false ? '🔓 Réactiver' : '🔒 Suspendre'}</button>` : ''}
-        <button class="btn btn-info btn-sm tenant-plan-btn" data-id="${t.id}" data-plan="${t.resident_plan || `none`}" data-until="${t.resident_plan_until || ``}">📦 Forfait</button>
-        <button class="btn btn-info btn-sm tenant-access-btn" data-id="${t.id}">🗝 Accès</button>
+        <button class="btn btn-info btn-sm" onclick="openPlanManagerById('${t.id}')">📦 Forfait</button>
+        <button class="btn btn-info btn-sm" onclick="openAccessManagerById('${t.id}')">🗝 Accès</button>
         <button class="btn btn-secondary btn-sm" onclick="editTenant('${t.id}')">Modifier</button>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">Aucun locataire</td></tr>';
 
-  // Déléguer les clics APRÈS que le HTML est dans le DOM
-  document.getElementById('tenants-tbody').onclick = function(e) {
-    const planBtn = e.target.closest('.tenant-plan-btn');
-    if (planBtn) {
-      const t = tenantsCache.find(x => x.id === planBtn.dataset.id);
-      if (t) openPlanManager(t.id, t.full_name, planBtn.dataset.plan, planBtn.dataset.until);
-      return;
-    }
-    const accessBtn = e.target.closest('.tenant-access-btn');
-    if (accessBtn) {
-      const t = tenantsCache.find(x => x.id === accessBtn.dataset.id);
-      if (t) openAccessManager(t.id, t.full_name);
-      return;
-    }
-  };
+
 }
 
 // ── GESTION DES ACCÈS PAR RESSOURCE ─────────────────────────────────────────
@@ -6620,6 +6606,18 @@ async function toggleResourceAccess(type, resourceId, grant) {
   }
   renderAccessManager();
   toast(grant ? '🔓 Accès accordé' : '🔒 Accès retiré', 'success');
+}
+
+function openPlanManagerById(id) {
+  const t = tenantsCache.find(x => x.id === id);
+  if (!t) return;
+  openPlanManager(t.id, t.full_name, t.resident_plan || 'none', t.resident_plan_until || '');
+}
+
+function openAccessManagerById(id) {
+  const t = tenantsCache.find(x => x.id === id);
+  if (!t) return;
+  openAccessManager(t.id, t.full_name);
 }
 
 // ── GESTION DES FORFAITS RÉSIDENTS ──────────────────────────────────────────
@@ -9748,13 +9746,4 @@ async function bbDeletePost(id) {
     // Afficher la bannière après un court délai (laisser l'app charger)
     setTimeout(function() {
       var b = document.getElementById('consent-banner');
-      if (b) b.style.display = 'flex';
-    }, 1500);
-  }
-})();
-
-function setConsent(choice) {
-  localStorage.setItem('ga_consent', choice);
-  window._gaConsent = choice;
-  var b = document.getElementById('consent-banner');
-  if (b) b.style.display = 
+      if (b) b
