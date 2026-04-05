@@ -26,21 +26,36 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<!-- V25.1 Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-EWP5ER8KFJ"></script>
+<!-- V25.1 Analytics — chargé uniquement après consentement (Loi 25) -->
 <script>
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 
-gtag('js', new Date());
-gtag('config', 'G-EWP5ER8KFJ', {
-  page_path: window.location.pathname,
-  page_title: document.title
-});
+// GA désactivé par défaut — activé seulement après consentement explicite
+window._gaConsent = localStorage.getItem('ga_consent');
+
+function _loadGA() {
+  if (window._gaLoaded) return;
+  window._gaLoaded = true;
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=G-EWP5ER8KFJ';
+  document.head.appendChild(s);
+  s.onload = function() {
+    gtag('js', new Date());
+    gtag('config', 'G-EWP5ER8KFJ', {
+      page_path: window.location.pathname,
+      page_title: document.title,
+      anonymize_ip: true
+    });
+  };
+}
+
+if (window._gaConsent === 'granted') { _loadGA(); }
 
 function trackFeature(category, action, details = {}) {
-  // GA4
-  if (typeof gtag === 'function') {
+  // GA4 — seulement si consentement accordé
+  if (window._gaConsent === 'granted' && typeof gtag === 'function') {
     gtag('event', action, {
       feature_category: category,
       page_path: window.location.pathname,
@@ -3222,7 +3237,7 @@ async function initApp() {
   }
 
   console.log('currentProfile:', currentProfile?.email, currentProfile?.role);
-  gtag('set', 'user_properties', { user_type: 'resident' });
+  if (window._gaConsent === 'granted') gtag('set', 'user_properties', { user_type: 'resident' });
   trackFeature('platform', 'resident_login');
   showApp();
 }
@@ -3450,7 +3465,7 @@ async function loginDemo() {
   ];
   showApp();
   toast('Mode démo activé — consultation uniquement', 'info');
-  gtag('set', 'user_properties', { user_type: 'demo' });
+  if (window._gaConsent === 'granted') gtag('set', 'user_properties', { user_type: 'demo' });
   trackFeature('platform', 'demo_login');
 }
 
@@ -8629,5 +8644,95 @@ async function bbDeletePost(id) {
     <div id="modal-login-conditions-content" style="padding:0 24px"></div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════
+     BANNIÈRE CONSENTEMENT COOKIES — Loi 25 (Québec)
+     ═══════════════════════════════════════════════════════ -->
+<style>
+#consent-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface, #1a1a1a);
+  border-top: 1px solid var(--border, #333);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  z-index: 99999;
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  color: var(--text2, #ccc);
+  flex-wrap: wrap;
+}
+#consent-banner p { margin: 0; flex: 1; min-width: 200px; line-height: 1.5; }
+#consent-banner a { color: var(--accent2, #4fa3e8); text-decoration: underline; }
+#consent-banner .cb-btns { display: flex; gap: 8px; flex-shrink: 0; }
+#consent-banner button {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 7px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid;
+  transition: opacity .15s;
+}
+#consent-banner button:hover { opacity: .8; }
+#btn-consent-accept {
+  background: var(--accent2, #4fa3e8);
+  color: #fff;
+  border-color: var(--accent2, #4fa3e8);
+}
+#btn-consent-refuse {
+  background: transparent;
+  color: var(--text2, #ccc);
+  border-color: var(--border, #555);
+}
+</style>
+
+<div id="consent-banner" style="display:none">
+  <p>
+    Nous utilisons Google Analytics pour mesurer l'utilisation de la plateforme de façon anonyme.
+    Aucune donnée personnelle n'est transmise sans votre accord.
+    <a href="#" onclick="showSection('conditions');closeBanner();return false;">En savoir plus</a>
+  </p>
+  <div class="cb-btns">
+    <button id="btn-consent-refuse" onclick="setConsent('denied')">Refuser</button>
+    <button id="btn-consent-accept" onclick="setConsent('granted')">Accepter</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  var consent = localStorage.getItem('ga_consent');
+  if (!consent) {
+    // Afficher la bannière après un court délai (laisser l'app charger)
+    setTimeout(function() {
+      var b = document.getElementById('consent-banner');
+      if (b) b.style.display = 'flex';
+    }, 1500);
+  }
+})();
+
+function setConsent(choice) {
+  localStorage.setItem('ga_consent', choice);
+  window._gaConsent = choice;
+  var b = document.getElementById('consent-banner');
+  if (b) b.style.display = 'none';
+  if (choice === 'granted') {
+    _loadGA();
+    trackFeature('platform', 'consent_granted');
+  }
+}
+
+function closeBanner() {
+  var b = document.getElementById('consent-banner');
+  if (b) b.style.display = 'none';
+}
+</script>
+
 </body>
 </html>
