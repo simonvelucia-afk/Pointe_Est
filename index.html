@@ -3257,6 +3257,7 @@ let tripsCache = [];
 let tenantsCache = [];
 let settingsCache = {};
 window.appModules = { trips: true, lunch: true }; // chargé depuis system_settings
+window.networkData = { network: null, members: [], sharedSpaces: [], sharedTrips: [] };
 let currentBookingSpaceId = null;
 let currentBookingTripId = null;
 
@@ -3379,7 +3380,7 @@ async function initApp() {
 
   if (window._gaConsent === 'granted') gtag('set', 'user_properties', { user_type: 'resident' });
   trackFeature('platform', 'resident_login');
-  await Promise.all([loadResourceAccess(), loadAppModules()]);
+  await Promise.all([loadResourceAccess(), loadAppModules(), loadNetworkData()]);
   showApp();
 }
 
@@ -3752,6 +3753,111 @@ async function loadAppModules() {
       </div>`;
     throw new Error('Licence invalide');
   }
+}
+
+// ── RÉSEAU INTER-BÂTIMENTS ───────────────────────────────────────────────────
+async function loadNetworkData() {
+  if (isDemo) return;
+  try {
+    const domain = window.location.hostname;
+    // 1. Trouver le client correspondant à ce domaine
+    const licRes = await fetch(
+      CENTRAL_URL + '/rest/v1/licences?domain=eq.' + encodeURIComponent(domain) + '&select=client_id',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY } }
+    );
+    const licData = await licRes.json();
+    if (!licData?.length) return;
+    const clientId = licData[0].client_id;
+
+    // 2. Trouver les réseaux auxquels ce bâtiment appartient
+    const netRes = await fetch(
+      CENTRAL_URL + '/rest/v1/network_members?client_id=eq.' + clientId + '&select=network_id,priority,networks(id,name,active)',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY } }
+    );
+    const netData = await netRes.json();
+    const activeNet = (netData || []).find(m => m.networks?.active);
+    if (!activeNet) return;
+
+    window.networkData.network = activeNet.networks;
+    window.networkData.myClientId = clientId;
+    window.networkData.myPriority = activeNet.priority;
+
+    // 3. Charger tous les membres du réseau (sauf soi-même)
+    const membRes = await fetch(
+      CENTRAL_URL + '/rest/v1/network_members?network_id=eq.' + activeNet.network_id + '&client_id=neq.' + clientId + '&select=client_id,supabase_url,anon_key,priority,clients(name)',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY } }
+    );
+    const members = await membRes.json();
+    window.networkData.members = members || [];
+
+    // 4. Charger les ressources partagées
+    const srRes = await fetch(
+      CENTRAL_URL + '/rest/v1/shared_resources?network_id=eq.' + activeNet.network_id + '&active=eq.true&select=*',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY } }
+    );
+    const sharedResources = await srRes.json();
+    window.networkData.sharedResources = sharedResources || [];
+
+    // 5. Charger les détails des espaces partagés depuis chaque bâtiment membre
+    await loadNetworkSpaces();
+  } catch(e) {
+    // Fail silencieux — le réseau est optionnel
+  }
+}
+
+async function loadNetworkSpaces() {
+  window.networkData.sharedSpaces = [];
+  const spaceResources = (window.networkData.sharedResources || []).filter(r => r.resource_type === 'space');
+  if (!spaceResources.length) return;
+
+  for (const member of window.networkData.members) {
+    const memberSpaceIds = spaceResources
+      .filter(r => r.source_client_id === member.client_id)
+      .map(r => r.resource_id);
+    if (!memberSpaceIds.length) continue;
+
+    try {
+      const res = await fetch(
+        member.supabase_url + '/rest/v1/common_spaces?id=in.(' + memberSpaceIds.join(',') + ')&is_available=eq.true&select=*,space_pricing(price_per_slot)',
+        { headers: { apikey: member.anon_key, Authorization: 'Bearer ' + member.anon_key } }
+      );
+      const spaces = await res.json();
+      (spaces || []).forEach(s => {
+        const sharedDef = spaceResources.find(r => r.resource_id === s.id);
+        window.networkData.sharedSpaces.push({
+          ...s,
+          _network: true,
+          _memberName: member.clients?.name || 'Autre bâtiment',
+          _memberUrl: member.supabase_url,
+          _memberKey: member.anon_key,
+          _memberClientId: member.client_id,
+          _priorityHours: sharedDef?.priority_hours || 24,
+          _sharedFrom: sharedDef?.shared_from,
+          _sharedTo: sharedDef?.shared_to
+        });
+      });
+    } catch(e) { /* bâtiment inaccessible */ }
+  }
+}
+
+function isInPriorityWindow(priorityHours) {
+  // Pendant la fenêtre de priorité, seuls les résidents locaux peuvent réserver
+  // (cette logique est gérée côté bâtiment propriétaire via RLS)
+  return false; // Pour l'instant pas de restriction de fenêtre côté client
+}
+
+async function bookNetworkSpace(spaceId, spaceName, memberUrl, memberKey, memberClientId) {
+  if (!checkActive()) return;
+  // Stocker les infos du bâtiment réseau pour la réservation
+  window._networkBooking = { spaceId, spaceName, memberUrl, memberKey, memberClientId, isNetwork: true };
+  currentBookingSpaceId = spaceId;
+  document.getElementById('book-space-title').textContent = 'Réserver — ' + spaceName + ' 🔗';
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('book-date').value = today;
+  document.getElementById('book-start').value = '09:00';
+  document.getElementById('book-end').value = '10:00';
+  updateBookCostPreview();
+  openModal('modal-book-space');
 }
 
 async function checkLicence() {
@@ -4266,6 +4372,13 @@ async function loadSpaces() {
   }
   spacesCache = data || [];
   renderSpaces(spacesCache);
+  // Ajouter les espaces réseau après les espaces locaux
+  document.getElementById('spaces-grid').innerHTML += renderNetworkSpaces();
+  // Déléguer les clics sur les boutons réseau
+  document.getElementById('spaces-grid').addEventListener('click', function(e) {
+    const btn = e.target.closest('.net-book-space');
+    if (btn) bookNetworkSpace(btn.dataset.sid, btn.dataset.sname, btn.dataset.url, btn.dataset.key, btn.dataset.cid);
+  });
 }
 
 function renderSpaces(spaces) {
@@ -4302,6 +4415,39 @@ function renderSpaces(spaces) {
   }).join('');
 }
 
+function renderNetworkSpaces() {
+  const sharedSpaces = window.networkData.sharedSpaces || [];
+  if (!sharedSpaces.length) return '';
+  const networkName = window.networkData.network?.name || 'Réseau';
+  const header = '<div style="margin:24px 0 12px;padding-top:20px;border-top:1px solid var(--border);">'
+    + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:2px;">🔗 ' + networkName + '</div>'
+    + '<div style="font-size:12px;color:var(--text3)">Ressources partagées par les bâtiments du réseau</div>'
+    + '</div>';
+  const cards = sharedSpaces.map(s => {
+    const price = s.space_pricing?.[0]?.price_per_slot || 0;
+    return '<div class="card" style="border-color:rgba(79,163,232,0.3);">'
+      + '<div class="card-header">'
+      + '<div>'
+      + '<div class="card-title">' + escHtml(s.name) + '</div>'
+      + '<div class="card-subtitle" style="color:var(--accent2)">🔗 ' + escHtml(s._memberName) + '</div>'
+      + '</div>'
+      + '<span class="badge" style="background:rgba(79,163,232,.15);color:var(--accent2);border:1px solid rgba(79,163,232,.3)">Réseau</span>'
+      + '</div>'
+      + '<div class="card-meta">'
+      + (s.capacity ? '<span class="meta-item">👥 ' + s.capacity + ' ' + pt('personnes') + '</span>' : '')
+      + (s.location ? '<span class="meta-item">📍 ' + escHtml(s.location) + '</span>' : '')
+      + '</div>'
+      + '<div class="card-price">' + price.toFixed(2) + ' $ <small style="font-size:.75rem;color:var(--text2)">' + pt('/ 15 min') + '</small></div>'
+      + '<div class="card-actions">'
+      + (!isDemo
+          ? '<button class="btn btn-secondary btn-sm net-book-space" data-sid="' + s.id + '" data-sname="' + escHtml(s.name).replace(/"/g,'') + '" data-url="' + s._memberUrl + '" data-key="' + s._memberKey + '" data-cid="' + s._memberClientId + '">' + pt('Réserver') + '</button>'
+          : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+  return header + '<div class="cards-grid">' + cards + '</div>';
+}
+
 function filterSpaces() {
   const q = document.getElementById('spaces-search').value.toLowerCase();
   renderSpaces(spacesCache.filter(s => !q || s.name.toLowerCase().includes(q) || (s.location || '').toLowerCase().includes(q)));
@@ -4317,6 +4463,100 @@ function openBookSpace(spaceId, spaceName) {
   document.getElementById('book-end').value = '10:00';
   updateBookCostPreview();
   openModal('modal-book-space');
+}
+
+async function confirmNetworkBookSpace() {
+  const nb = window._networkBooking;
+  if (!nb) return;
+  const date  = document.getElementById('book-date').value;
+  const start = document.getElementById('book-start').value;
+  const end   = document.getElementById('book-end').value;
+  if (!date || !start || !end || end <= start) { toast('Veuillez remplir tous les champs', 'error'); return; }
+
+  const startDT = date + 'T' + start + ':00';
+  const endDT   = date + 'T' + end + ':00';
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const minutes  = (eh * 60 + em) - (sh * 60 + sm);
+  const slots    = Math.ceil(minutes / 15);
+
+  // Récupérer le prix depuis l'espace réseau
+  const space = window.networkData.sharedSpaces.find(s => s.id === nb.spaceId);
+  const price = space?.space_pricing?.[0]?.price_per_slot || 0;
+  const cost  = slots * price;
+
+  if (currentProfile.virtual_balance < cost) { toast('Solde insuffisant', 'error'); return; }
+
+  try {
+    // 1. Vérifier disponibilité via API du bâtiment propriétaire
+    const availRes = await fetch(
+      nb.memberUrl + '/rest/v1/rpc/check_space_availability',
+      {
+        method: 'POST',
+        headers: { apikey: nb.memberKey, Authorization: 'Bearer ' + nb.memberKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_space_id: nb.spaceId, p_start: startDT, p_end: endDT })
+      }
+    );
+    const avail = await availRes.json();
+    if (!avail) { toast('Cet espace n\'est pas disponible sur ce créneau', 'error'); return; }
+
+    // 2. Créer la réservation dans le Supabase du bâtiment propriétaire
+    const resRes = await fetch(
+      nb.memberUrl + '/rest/v1/space_reservations',
+      {
+        method: 'POST',
+        headers: {
+          apikey: nb.memberKey, Authorization: 'Bearer ' + nb.memberKey,
+          'Content-Type': 'application/json', Prefer: 'return=representation'
+        },
+        body: JSON.stringify({
+          space_id: nb.spaceId,
+          tenant_id: currentProfile.id,
+          start_time: startDT, end_time: endDT,
+          total_slots: slots, total_cost: cost,
+          status: 'confirmed',
+          notes: 'Réservation réseau — ' + (window.networkData.network?.name || '')
+        })
+      }
+    );
+    if (!resRes.ok) { toast('Erreur lors de la réservation réseau', 'error'); return; }
+
+    // 3. Débiter le solde local du résident
+    await sb.rpc('adjust_balance', {
+      p_user_id: currentProfile.id,
+      p_amount: -cost,
+      p_type: 'space_reservation',
+      p_description: 'Réservation réseau — ' + nb.spaceName
+    });
+    currentProfile.virtual_balance -= cost;
+    document.getElementById('nav-balance').textContent = currentProfile.virtual_balance.toFixed(2);
+
+    // 4. Enregistrer la transaction réseau dans Modulimo Central
+    await fetch(
+      CENTRAL_URL + '/rest/v1/network_transactions',
+      {
+        method: 'POST',
+        headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          network_id: window.networkData.network.id,
+          from_client_id: window.networkData.myClientId,
+          to_client_id: nb.memberClientId,
+          resident_user_id: currentProfile.id,
+          resource_type: 'space',
+          resource_id: nb.spaceId,
+          resource_name: nb.spaceName,
+          amount_gross: cost
+        })
+      }
+    );
+
+    window._networkBooking = null;
+    toast('Réservation réseau confirmée ✓', 'success');
+    closeModal('modal-book-space');
+    trackFeature('network', 'network_space_booked', { space: nb.spaceName });
+  } catch(e) {
+    toast('Erreur lors de la réservation réseau: ' + e.message, 'error');
+  }
 }
 
 function updateBookCostPreview() {
@@ -4340,6 +4580,11 @@ document.getElementById('book-start').addEventListener('change', updateBookCostP
 document.getElementById('book-end').addEventListener('change', updateBookCostPreview);
 
 async function confirmBookSpace() {
+  // Si c'est une réservation réseau, rediriger vers confirmNetworkBookSpace
+  if (window._networkBooking?.isNetwork) {
+    await confirmNetworkBookSpace();
+    return;
+  }
   if (isDemo) {
     await logRequest(currentBookingSpaceId, 'space', 'request', { demo: true });
     toast('Mode démo: demande enregistrée sans réservation réelle', 'info');
