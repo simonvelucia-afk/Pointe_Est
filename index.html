@@ -6508,22 +6508,6 @@ function exportStatsCSV() {
 async function loadTenants() {
   const { data } = await sb.from('profiles').select('*').neq('role', 'demo').order('full_name');
   tenantsCache = data || [];
-  // Déléguer les clics sur les boutons dynamiques
-  const tbody = document.getElementById('tenants-tbody');
-  tbody.onclick = function(e) {
-    const planBtn = e.target.closest('.tenant-plan-btn');
-    if (planBtn) {
-      const t = tenantsCache.find(x => x.id === planBtn.dataset.id);
-      if (t) openPlanManager(t.id, t.full_name, planBtn.dataset.plan, planBtn.dataset.until);
-      return;
-    }
-    const accessBtn = e.target.closest('.tenant-access-btn');
-    if (accessBtn) {
-      const t = tenantsCache.find(x => x.id === accessBtn.dataset.id);
-      if (t) openAccessManager(t.id, t.full_name);
-      return;
-    }
-  };
   document.getElementById('tenants-tbody').innerHTML = tenantsCache.map(t => {
     const displayName = isDemo ? anonName(t.id) : escHtml(t.full_name);
     const displayUnit = isDemo ? (t.unit ? anonUnit(t.id) : '—') : (t.unit || '—');
@@ -6550,6 +6534,22 @@ async function loadTenants() {
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3)">Aucun locataire</td></tr>';
+
+  // Déléguer les clics APRÈS que le HTML est dans le DOM
+  document.getElementById('tenants-tbody').onclick = function(e) {
+    const planBtn = e.target.closest('.tenant-plan-btn');
+    if (planBtn) {
+      const t = tenantsCache.find(x => x.id === planBtn.dataset.id);
+      if (t) openPlanManager(t.id, t.full_name, planBtn.dataset.plan, planBtn.dataset.until);
+      return;
+    }
+    const accessBtn = e.target.closest('.tenant-access-btn');
+    if (accessBtn) {
+      const t = tenantsCache.find(x => x.id === accessBtn.dataset.id);
+      if (t) openAccessManager(t.id, t.full_name);
+      return;
+    }
+  };
 }
 
 // ── GESTION DES ACCÈS PAR RESSOURCE ─────────────────────────────────────────
