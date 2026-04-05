@@ -3123,6 +3123,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ── MODULIMO CENTRAL ─────────────────────────────────────────────────
+const CENTRAL_URL = 'https://bpxscgrbxjscicpnheep.supabase.co';
+const CENTRAL_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJweHNjZ3JieGpzY2ljcG5oZWVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTYxNzIsImV4cCI6MjA5MDk3MjE3Mn0._M6HHhCwKuuqAzicDZzJp7ul0M3KpDBBDb6ImDWWcLo';
+
 // ==========================================
 // STATE GLOBAL
 // ==========================================
@@ -3188,6 +3192,7 @@ let vehiclesCache = [];
 let tripsCache = [];
 let tenantsCache = [];
 let settingsCache = {};
+window.appModules = { trips: true, lunch: true }; // chargé depuis system_settings
 let currentBookingSpaceId = null;
 let currentBookingTripId = null;
 
@@ -3275,7 +3280,7 @@ async function initApp() {
 
   if (window._gaConsent === 'granted') gtag('set', 'user_properties', { user_type: 'resident' });
   trackFeature('platform', 'resident_login');
-  await loadResourceAccess();
+  await Promise.all([loadResourceAccess(), loadAppModules()]);
   showApp();
 }
 
@@ -3619,6 +3624,56 @@ async function toggleDepResourceAccess(type, resourceId, grant, name) {
   openDepAccessManager(depAccessManagerId, depAccessManagerName);
 }
 
+async function loadAppModules() {
+  if (isDemo) return;
+  // 1. Lire les préférences locales (admin local peut désactiver dans son enveloppe)
+  const { data: localSettings } = await sb.from('system_settings')
+    .select('key, value')
+    .in('key', ['module_trips', 'module_lunch']);
+  const localTrips = localSettings?.find(s => s.key === 'module_trips')?.value !== 'false';
+  const localLunch = localSettings?.find(s => s.key === 'module_lunch')?.value !== 'false';
+
+  // 2. Vérifier la licence centrale (définit l'enveloppe max)
+  const licence = await checkLicence();
+
+  // 3. Résultat = intersection licence centrale ET préférences locales
+  window.appModules.trips = (licence?.modules?.trips !== false) && localTrips;
+  window.appModules.lunch = (licence?.modules?.lunch !== false) && localLunch;
+
+  // 4. Si licence invalide ou expirée — bloquer l'app
+  if (licence === null) {
+    document.body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f0f0f;font-family:system-ui;text-align:center;padding:40px;">
+        <div>
+          <div style="font-size:2rem;margin-bottom:16px;">🔒</div>
+          <div style="font-size:1.2rem;font-weight:600;color:#c8a96e;margin-bottom:8px;">Licence invalide ou expirée</div>
+          <div style="color:#9a9890;font-size:14px;margin-bottom:20px;">Contactez Modulimo pour activer ou renouveler votre licence.</div>
+          <a href="mailto:simon.velucia@gmail.com" style="color:#4fa3e8;font-size:13px;">simon.velucia@gmail.com</a>
+        </div>
+      </div>`;
+    throw new Error('Licence invalide');
+  }
+}
+
+async function checkLicence() {
+  try {
+    const domain = window.location.hostname;
+    const res = await fetch(
+      CENTRAL_URL + '/rest/v1/licences?domain=eq.' + encodeURIComponent(domain) + '&active=eq.true&select=modules,expires_at,plan,max_units',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY } }
+    );
+    if (!res.ok) return {}; // En cas d'erreur réseau — ne pas bloquer
+    const data = await res.json();
+    if (!data.length) return null; // Domaine non trouvé = licence invalide
+    const lic = data[0];
+    // Vérifier expiration
+    if (lic.expires_at && new Date(lic.expires_at) < new Date()) return null;
+    return lic;
+  } catch(e) {
+    return {}; // Erreur réseau — laisser passer (fail open pour éviter de bloquer les clients)
+  }
+}
+
 async function loadResourceAccess() {
   if (isDemo || !currentProfile) return;
   const { data } = await sb.from('resource_access')
@@ -3759,8 +3814,8 @@ function buildNav() {
   html += `<button class="nav-tab" onclick="navigateTo('babillard')">${t('navBabillard')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('dashboard')">${t('navDashboard')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('spaces')">${t('navSpaces')}</button>`;
-  html += `<button class="nav-tab" onclick="navigateTo('trips')">${t('navTrips')}</button>`;
-  html += `<button class="nav-tab" onclick="navigateTo('lunch')">${t('navLunch')}</button>`;
+  if (window.appModules.trips) html += `<button class="nav-tab" onclick="navigateTo('trips')">${t('navTrips')}</button>`;
+  if (window.appModules.lunch) html += `<button class="nav-tab" onclick="navigateTo('lunch')">${t('navLunch')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('transactions')">${t('navTransactions')}</button>`;
   html += `<button class="nav-tab" onclick="navigateTo('profile')">👤 ${t('navProfile')}</button>`;
   if (isAdmin) {
@@ -3776,8 +3831,8 @@ function buildNav() {
       { key: 'babillard',    label: '📌 ' + t('navBabillard') },
       { key: 'dashboard', label: '🏠 ' + t('navDashboard') },
       { key: 'spaces',    label: '🏢 ' + t('navSpaces') },
-      { key: 'trips',     label: '🚗 ' + t('navTrips') },
-      { key: 'lunch',     label: '🍱 ' + t('navLunch') },
+      ...(window.appModules.trips ? [{ key: 'trips', label: '🚗 ' + t('navTrips') }] : []),
+      ...(window.appModules.lunch ? [{ key: 'lunch', label: '🍱 ' + t('navLunch') }] : []),
       { key: 'transactions', label: '💳 ' + t('navTransactions') },
       { key: 'profile',   label: '👤 ' + t('navProfile') },
       ...(isAdmin ? [{ key: 'admin', label: '⚙️ ' + t('navAdmin') }] : [])
@@ -3807,8 +3862,10 @@ function buildNav() {
   if (currentProfile?.role === 'principal_admin') {
     document.getElementById('settings-tab').style.display = '';
   }
-  if (isAdmin) {
+  if (isAdmin && window.appModules.lunch) {
     document.getElementById('lunch-admin-tab').style.display = '';
+  } else {
+    document.getElementById('lunch-admin-tab').style.display = 'none';
   }
   // Dropdown user info
   const ddName = document.getElementById('dropdown-name');
@@ -3818,6 +3875,8 @@ function buildNav() {
 }
 
 function navigateTo(page) {
+  if (page === 'trips' && !window.appModules.trips) { toast('Module Auto-partage non activé', 'info'); return; }
+  if (page === 'lunch' && !window.appModules.lunch) { toast('Module Machine Lunch non activé', 'info'); return; }
   closeMobileMenu();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -6452,13 +6511,62 @@ async function recordPayment() {
 async function loadSettings() {
   const { data } = await sb.from('system_settings').select('*').order('key');
   const form = document.getElementById('settings-form');
-  form.innerHTML = (data || []).map(s => `
+  if (!form) return;
+
+  // Modules activables — affichés en premier avec des toggles
+  const moduleKeys = ['module_trips', 'module_lunch'];
+  const moduleLabels = {
+    module_trips: '🚗 Module Auto-partage (covoiturage + véhicules)',
+    module_lunch: '🍱 Module Machine Lunch (kiosque + commandes)'
+  };
+  const moduleData = (data || []).filter(s => moduleKeys.includes(s.key));
+  const moduleHtml = moduleData.length ? `
+    <div style="margin-bottom:20px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:12px;">Modules optionnels</div>
+      ${moduleData.map(s => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+        <label style="font-size:13px;cursor:pointer;" for="mod-${s.key}">${moduleLabels[s.key] || s.key}</label>
+        <label style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;">
+          <input type="checkbox" id="mod-${s.key}" ${s.value === 'true' ? 'checked' : ''}
+            onchange="saveModuleSetting('${s.key}', this.checked)"
+            style="opacity:0;width:0;height:0;position:absolute;">
+          <span style="position:absolute;cursor:pointer;inset:0;background:${s.value === 'true' ? 'var(--accent2)' : 'var(--border)'};border-radius:22px;transition:.3s;"
+            id="mod-track-${s.key}"></span>
+          <span style="position:absolute;height:16px;width:16px;left:${s.value === 'true' ? '21px' : '3px'};bottom:3px;background:white;border-radius:50%;transition:.3s;"
+            id="mod-thumb-${s.key}"></span>
+        </label>
+      </div>`).join('')}
+    </div>` : '';
+  form.innerHTML = moduleHtml + (data || []).filter(s => !moduleKeys.includes(s.key)).map(s => `
     <div class="form-group">
       <label>${escHtml(s.description || s.key)}</label>
       <input type="text" id="setting-${s.key}" value="${escHtml(s.value)}">
     </div>
   `).join('');
   settingsCache = Object.fromEntries((data || []).map(s => [s.key, s]));
+}
+
+async function saveModuleSetting(key, enabled) {
+  const { error } = await sb.from('system_settings').update({
+    value: enabled ? 'true' : 'false',
+    updated_by: currentProfile.id,
+    updated_at: new Date().toISOString()
+  }).eq('key', key);
+  if (error) { toast('Erreur: ' + error.message, 'error'); return; }
+
+  // Mettre à jour le toggle visuellement
+  const track = document.getElementById('mod-track-' + key);
+  const thumb = document.getElementById('mod-thumb-' + key);
+  if (track) track.style.background = enabled ? 'var(--accent2)' : 'var(--border)';
+  if (thumb) thumb.style.left = enabled ? '21px' : '3px';
+
+  // Mettre à jour appModules en temps réel
+  if (key === 'module_trips') window.appModules.trips = enabled;
+  if (key === 'module_lunch') window.appModules.lunch = enabled;
+
+  // Reconstruire la nav
+  buildNav();
+  toast(`Module ${enabled ? 'activé' : 'désactivé'}`, 'success');
 }
 
 async function saveSettings() {
